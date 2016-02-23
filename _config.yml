@@ -11,14 +11,15 @@ email: p_qp__q@163.com
 description: > # this means to ignore newlines until "baseurl:"
     等等,我还没想好. P.S. 怎么这么多东西要写..
 baseurl: ""
-url: "http://pp-qq.github.io/" # the base hostname & protocol for your site
+url: "http://pp-qq.github.io" # the base hostname & protocol for your site
 github_username:  pp-qq
 
 # Build settings
-markdown: kramdown
+markdown: redcarpet
 
-kramdown:
-  input: GFM
+redcarpet:
+    extensions: ["fenced_code_blocks"]
+
 
 defaults:
   -

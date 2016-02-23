@@ -2,8 +2,9 @@
 ---
 
 # 简介
+
 ## sqlite 架构
-![sqlite 架构图](http://123.56.233.178/document/img/vfs1.gif)
+![sqlite 架构图]({{site.url}}/assets/vfs1.gif)
 
 *   Tokenizer,Parser,Code Generator;负责将 SQL 编译为 byte code(又被称为 prepared statement);
 *   Virtual Machine;负责运行 prepared statement;

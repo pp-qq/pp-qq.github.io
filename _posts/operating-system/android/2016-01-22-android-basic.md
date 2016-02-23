@@ -5,12 +5,14 @@
 *   记录了 Android 开发过程笔记.
 
 # Android SDK 介绍
+
 ## platform-tools
 *   platform-tools;存放着一些 build-tools,这些 build-tools 会周期性更新以与 Android 新
     平台兼容;这也就是为什么将其与 basic sdk tools 分开放置的原因.
   
 
 # Android NDK 介绍
+
 ## 项目目录布局
 *   项目目录布局,如下:
 
@@ -22,6 +24,7 @@
     ```
     当编译时,在 project 下运行 ndk-build,此时会根据 jni/Android.mk 来编译 native code;
     并将生成库安装到 project/libs/ 下面.
+
 ## static runtimes 或 shared runtimes.
 *   当选择 static runtimes,并且 jni 下有多个 module,这样会导致每一个 module 都有 static
     runtimes 的一个副本.这样 static runtimes 内部使用,或者暴露出来的全局变量就会重复,会导致
