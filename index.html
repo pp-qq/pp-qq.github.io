@@ -1,23 +1,49 @@
 ---
-layout: default
+layout: page_title
+title: <i class="fa fa-home fa-lg"></i>
+titlename: 首页
 ---
-
-<div class="home">
-
-  <h1 class="page-heading">Posts</h1>
-
-  <ul class="post-list">
-    {% for post in site.posts %}
-      <li>
-        <span class="post-meta">{{ post.date | date: "%b %-d, %Y" }}</span>
-
-        <h2>
-          <a class="post-link" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
-        </h2>
-      </li>
-    {% endfor %}
-  </ul>
-
-  <p class="rss-subscribe">subscribe <a href="{{ "/feed.xml" | prepend: site.baseurl }}">via RSS</a></p>
-
+<!--<br>--> 
+<center>
+    <h3>
+        <font color="#000080">简</font>
+        <font color="#FFA500">洁;</font>
+        <font color="#2E8B57">高</font>
+        <font color="#F08080">效;</font>
+        <font color="#00CED1">赏</font>
+        <font color="#BA55D3">心</font>
+        <font color="#601986">悦</font>
+        <font color="#556fb5">目</font>
+    </h3>
+</center>
+<div class="row">
+  <div class="col-md-12">
+    <div class="panel panel-primary">
+      <div class="panel-heading">{{ site.locals.newest }}</div>
+      {% for post in paginator.posts %}
+        <a  href='{{ post.url }}' class="list-group-item pjaxlink clearfix">
+          {{post.title}}
+          <span class="badge">{{ post.date | date:"%Y年%m月%d日" }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% for cate in site.cates %}
+    <div class="col-md-12">
+      <div class="panel panel-primary">
+        <div class="panel-heading">{{ cate }}</div>
+        {% for tag in site.tags %} 
+          {% if tag[0] == cate %}
+            {% for post in tag[1] %}
+              <a  href='{{ post.url }}' class="list-group-item pjaxlink clearfix">
+                {{post.title}}
+                <span class="badge">{{ post.date | date:"%Y年%m月%d日" }}</span>
+              </a>
+            {% endfor %}
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  {% endfor %}
 </div>
+ 
