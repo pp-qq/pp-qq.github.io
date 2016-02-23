@@ -20,3 +20,11 @@ markdown: kramdown
 kramdown:
   input: GFM
 
+defaults:
+  -
+    scope:
+      path: "" 
+      type: "posts" 
+    values:
+      layout: "post"
+      author: "p_qp__q@163.com"
