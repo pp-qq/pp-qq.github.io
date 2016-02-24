@@ -1,4 +1,6 @@
 paginate: 10
+gems: [jekyll-paginate]
+
 markdown: redcarpet
 
 # 作者信息
