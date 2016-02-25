@@ -5,9 +5,12 @@
       <a class="pjaxlink" href="/"><img src="{{ site.gavatar }}" class="img-ronuded avatar" style="border-width:0px; border-color:#000"></a>
       <br><br><br><br>
       <ul class="nav nav-pills nav-stacked">
-        {% for category in site.categories %}     <!-- 这里是aside1的读书、生活、科研、技术、绘画-->
+        <!--
+        这里不能滚动,而且宽度固定,所以会导致 category 显示不全.
+        {% for category in site.categories %}
          <li><a href="#{{ category | first }}" data-toggle="tab">{{ category[0] }}</a></li>
         {% endfor %}
+        -->
         <li><a href="#tags" data-toggle="tab">{{ site.locals.tags }}</a></li>  
         <li><a class="pjaxlink" href="/pages/archive.html">{{ site.locals.archive }}</a></li>
         <li><a class="pjaxlink" href="/pages/about.html">{{ site.locals.about }}</a></li>  
