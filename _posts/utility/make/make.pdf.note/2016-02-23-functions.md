@@ -1,5 +1,5 @@
 ---
-category: make文档
+title: Makefile 中如何使用函数
 ---
 
 # if
