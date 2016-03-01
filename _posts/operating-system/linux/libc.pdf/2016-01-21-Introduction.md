@@ -1,5 +1,5 @@
 ---
-category: glibc
+title: glibc-Introduction
 ---
 
 # 线程安全与全局优化

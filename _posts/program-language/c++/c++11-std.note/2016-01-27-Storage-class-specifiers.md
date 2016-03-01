@@ -1,5 +1,5 @@
 ---
-category: C加加11_标准
+title: C++11标准-Storage Class Specifiers
 ---
 
 # 前言
