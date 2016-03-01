@@ -1,5 +1,5 @@
 ---
-title: Makefile 中如何使用变量
+title: Makefile-如何使用变量
 ---
 
 ## 预定义的一些变量
