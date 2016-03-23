@@ -1,6 +1,6 @@
 ---
 
-title: basic_string 使用说明
+title: ::std::basic_string 文档
 DeclarationLocation: '<string>'
 
 ---
