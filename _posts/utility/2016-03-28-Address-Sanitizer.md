@@ -40,5 +40,5 @@ title: Address Sanitizer 使用.
     $ g++ -Wall -std=gnu++11 address_sanitizer_test.cc -fsanitize=address
     $ ./a.out # 检测到栈溢出了.
     =================================================================
-    ==18324==ERROR: AddressSanitizer: stack-buffer-overflow on address 0x7fffbb959e73 at pc 0x4008e3 bp 0x7fffbb959e30 sp 0x7fffbb959e20    
+    ==18324==ERROR: AddressSanitizer: stack-buffer-overflow on address... 此处省略若干字...
     ```
