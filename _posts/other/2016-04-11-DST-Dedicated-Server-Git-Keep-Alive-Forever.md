@@ -1,5 +1,5 @@
 ---
-title: 饥荒专用服务器-Git Keep Live Forever
+title: 饥荒专用服务器-Git Keep Alive Forever
 ---
 
 ## 前言
