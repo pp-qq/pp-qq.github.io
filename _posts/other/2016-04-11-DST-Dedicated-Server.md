@@ -69,7 +69,11 @@ Cluster_template/
 
     -   在[forums.kleientertainment.com][0]上应该有每一个字段的具体意义.我没找过 @_@
 
-*   `cluster_token.txt`;token嘛,令牌文件,关于如何生成令牌文件,参见[专用服务器搭建][1].
+*   `cluster_token.txt`;token嘛,令牌文件,关于如何生成令牌文件,参见[专用服务器搭建][1].如:
+
+    ```
+    UKINT+RYTH1+51FUH+AVAVR+Y5MAL+P3N1S==
+    ```
 
 *   `Master`;地表世界;该目录下存放着地表世界所有信息,包括地表世界的配置,存档等.
 
@@ -89,6 +93,9 @@ Cluster_template/
 
 
 ## 参考
+
+1.  [Dedicated Server Quick Setup Guide - Linux][1]   
+2.  [Dedicated Server Command Line Options Guide][2]   
 
 [0]: <http://forums.kleientertainment.com>
 [1]: <http://forums.kleientertainment.com/topic/64441-dedicated-server-quick-setup-guide-linux/> "Dedicated Server Quick Setup Guide - Linux"
