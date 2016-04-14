@@ -93,37 +93,37 @@ fix(ngClass): fix watching of an array expression containing an object
 Closes #14405
 ```
 
-*   在 Footer 部分同时存在 Closes,以及 BREAKING CHANGE 的情况:
+ 在 Footer 部分同时存在 Closes,以及 BREAKING CHANGE 的情况:
 
-    ```
-    fix(ngAria): don't add roles to native control elements
-    
-    prevent ngAria from attaching roles to textarea, button, select, summary, details, a, and input
-    
-    Closes  #14076
-    Closes #14145
-    
-    BREAKING CHANGE:
-    
-    ngAria will no longer add the "role" attribute to native control elements
-    (textarea, button, select, summary, details, a, and input). Previously, "role" was not added to
-    input, but all others in the list.
-    
-    This should not affect accessibility, because native inputs are accessible by default, but it might
-    affect applications that relied on the "role" attribute being present (e.g. for styling or as
-    directive attributes).
-    ```
+```
+fix(ngAria): don't add roles to native control elements
 
-*   scope 是可选的:
+prevent ngAria from attaching roles to textarea, button, select, summary, details, a, and input
 
-    ```
-    fix: make files in src/ jshint: eqeqeq compatible
+Closes  #14076
+Closes #14145
 
-    Add exceptions to the rule in input, ngAria, and parse.
-    For input and ngAria, the exception is to prevent a breaking change in the radio directive.
-    A test for the input behavior has been added.
-    For parse, the exception covers non-strict expression comparison.
-    ```
+BREAKING CHANGE:
+
+ngAria will no longer add the "role" attribute to native control elements
+(textarea, button, select, summary, details, a, and input). Previously, "role" was not added to
+input, but all others in the list.
+
+This should not affect accessibility, because native inputs are accessible by default, but it might
+affect applications that relied on the "role" attribute being present (e.g. for styling or as
+directive attributes).
+```
+
+scope 是可选的:
+
+```
+fix: make files in src/ jshint: eqeqeq compatible
+
+Add exceptions to the rule in input, ngAria, and parse.
+For input and ngAria, the exception is to prevent a breaking change in the radio directive.
+A test for the input behavior has been added.
+For parse, the exception covers non-strict expression comparison.
+```
 
 ### revert commit 的 commit message
 
