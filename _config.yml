@@ -25,7 +25,7 @@ github_username:    pp-qq
 highlighter: rouge
 permalink: pretty
 paginate: 13
-exclude: ["less","node_modules","Gruntfile.js","package.json","README.md"]
+exclude: ["less","node_modules","Gruntfile.js","package.json","README.md","README.zh.md"]
 anchorjs: true                          # if you want to customize anchor. check out line:181 of `post.html`
 
 
@@ -95,5 +95,6 @@ defaults:
     values:
       layout: "post"
       author: "p_qp__q@163.com"
+      catalog: true
   
   
