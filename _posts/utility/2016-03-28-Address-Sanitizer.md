@@ -1,5 +1,5 @@
 ---
-title: Address Sanitizer 使用.
+title: Address Sanitizer 使用
 ---
 
 ## Address Sanitizer 是什么
