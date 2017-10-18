@@ -83,7 +83,7 @@ featured-condition-size: 1              # A tag will be featured if the size of 
 friends: [
     {
         title: "不要点",
-        href: "http://news.163.com/"
+        href: "https://www.baidu.com/"
     }
 ]
 
