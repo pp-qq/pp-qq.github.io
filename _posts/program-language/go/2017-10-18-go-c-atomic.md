@@ -1,3 +1,8 @@
+---
+title: Golang C++11 中的原子操作对比
+---
+
+
 以下文章纯属个人理解. 
 
 
@@ -9,7 +14,7 @@
 
 同样由于 golang 的原子操作没有同步光环, 导致无法实现各种无锁数据结构, 曾一度以为很是可惜. 后来意识到在 golang 中或许其实并不需要无锁数据结构, 主要是因为当一个 goroutine 被 block 之后, golang 会调度其他 goroutine 运行, 所以程序整体并没有 block. 另外大多数无锁数据结构都是基于 CAS 以及无脑循环重试实现, 如下:
 
-```C++
+```CPP
 typedef struct {
 	int key;
 	struct node *next;
