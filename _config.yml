@@ -5,7 +5,7 @@ SEOTitle: 暂且就叫博客吧
 email: p_qp__q@163.com
 # description: "没有描述"
 # keyword: ""
-url: "http://pp-qq.github.io"              # your host, for absolute URL
+url: "http://blog.hhhh233.xyz"              # your host, for absolute URL
 # baseurl: "/huxblog-boilerplate"         # for example, '/blog' if your blog hosted on 'host/blog'
 
 
@@ -59,10 +59,10 @@ kramdown:
 
 # Analytics settings
 # Baidu Analytics
-ba_track_id: '1458dda4af6cd623aa273e7c393be718'
+# ba_track_id: '1458dda4af6cd623aa273e7c393be718'
 # Google Analytics
-ga_track_id: 'UA-83419943-1'            # Format: UA-xxxxxx-xx
-ga_domain: 'auto'
+# ga_track_id: 'UA-83419943-1'            # Format: UA-xxxxxx-xx
+# ga_domain: 'auto'
 
 
 
