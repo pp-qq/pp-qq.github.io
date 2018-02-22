@@ -2,7 +2,7 @@
 title: 暂且就叫博客吧
 SEOTitle: 暂且就叫博客吧
 # header-img: img/home-bg.jpg
-email: p_qp__q@163.com
+email: w@hidva.com
 # description: "没有描述"
 # keyword: ""
 url: "https://blog.hidva.com"              # your host, for absolute URL
@@ -96,7 +96,7 @@ defaults:
       type: "posts" 
     values:
       layout: "post"
-      author: "p_qp__q@163.com"
+      author: "w@hidva.com"
       catalog: true
   
   
