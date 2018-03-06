@@ -87,6 +87,10 @@ friends: [
     {
         title: "不要点",
         href: "https://www.baidu.com/"
+    },
+    {
+        title: "Go!Go!Go!",
+        href: "https://go.hidva.com/"
     }
 ]
 
