@@ -94,18 +94,18 @@ friends: [
     },
     {
         title: "这里面真没有啥的",
-        href: "/private%3f/"
+        href: "https://github.com/hidva/hidva.github.io/tree/dev/private%3F"
     }
 ]
 
 defaults:
   -
     scope:
-      path: "" 
-      type: "posts" 
+      path: ""
+      type: "posts"
     values:
       layout: "post"
       author: "w@hidva.com"
       catalog: true
-  
-  
+
+
