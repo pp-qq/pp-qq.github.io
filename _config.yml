@@ -94,7 +94,7 @@ friends: [
     },
     {
         title: "这里面真没有啥的",
-        href: "https://github.com/hidva/hidva.github.io/tree/dev/private%3F"
+        href: "/private%3f/"
     }
 ]
 
