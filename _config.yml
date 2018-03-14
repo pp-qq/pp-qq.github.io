@@ -1,3 +1,5 @@
+encoding: UTF-8
+
 # Site settings
 title: 暂且就叫博客吧
 SEOTitle: 暂且就叫博客吧
@@ -77,8 +79,8 @@ sidebar-avatar: /img/me.jpg      # use absolute URL, seeing it's used in both `/
 
 
 # Featured Tags
-featured-tags: false # whether or not using Feature-Tags
-featured-condition-size: 1              # A tag will be featured if the size of it is more than this condition value
+featured-tags: true # whether or not using Feature-Tags
+featured-condition-size: 0              # A tag will be featured if the size of it is more than this condition value
 
 
 
