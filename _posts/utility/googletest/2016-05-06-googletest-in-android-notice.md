@@ -1,5 +1,7 @@
 ---
-title: googletest 在 Android 上的坑
+title: "googletest 在 Android 上的坑"
+hidden: false
+tags: [gtest, "Android NDK"]
 ---
 
 

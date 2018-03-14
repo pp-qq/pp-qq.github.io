@@ -1,5 +1,7 @@
 ---
-title: Storm ShellBolt 死锁
+title: "Storm ShellBolt 死锁"
+hidden: false
+tags: [Storm]
 ---
 
 Storm ShellBolt 存在死锁的风险. 在 storm 中, ShellBolt 与其子进程通过标准输入/标准输出, 即文件描述符 0, 1 来通信, 同时也会读取标准出错, 即文件描述符 2 中的内容, 并将读取到的内容通过 storm 的日志系统输出到日志中. 具体如下:

@@ -1,5 +1,7 @@
 ---
 title: PhxPaxos Group 多状态机另外一种实现思路
+hidden: false
+tags: [paxos, phxpaxos]
 ---
 
 目前 [PhxPaxos](https://github.com/Tencent/phxpaxos) 中的 Group 支持挂载多个状态机. 并且除了用户显式挂载的状态机之外, PhxPaxos 也会根据配置往 Group 上挂载一些内部状态机, 比如负责 master 选举的 MasterStateMachine 等.

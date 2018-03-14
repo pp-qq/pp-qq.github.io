@@ -1,5 +1,7 @@
 ---
-title: 饥荒专用服务器-基础
+title: 饥荒专用服务器
+subtitle: 基础
+tags: [饥荒]
 ---
 
 
@@ -15,34 +17,34 @@ title: 饥荒专用服务器-基础
 
 ```shell
 $ cd $(DST_SERVER_DIR)/bin
-$ ./dontstarve_dedicated_server_nullrenderer 
+$ ./dontstarve_dedicated_server_nullrenderer
 ```
 
 *   `-persistent_storage_root`,`-conf_dir`;`$(persistent_storage_root)/$(conf_dir)`
     决定了配置文件的目录;专用服务器将在这里来加载配置以及保存存档.
-    
+
     -   `-persistent_storage_root`选项的默认值是 ~/.klei.
     -   `-conf_dir`选项的默认值是 DoNotStarveTogether
-    
+
 *   `-cluster`;指定了专用服务器本次要加载的 Cluster 名称;此时专用服务器将去`$(persistent_storage_root)/$(conf_dir)/$(cluster)/`
     下面来加载 Cluster 配置以及资源,并且将相关的存档文件也保存在这里.
-    
+
 
 ## Cluster 目录模板
 
 ```shell
-$ tree Cluster_template/                                                                       
-Cluster_template/                                                                              
-├── cluster.ini                                                                                
-├── cluster_token.txt                                                                          
-└── Master                                                                                     
-    ├── modoverrides.lua                                                                       
+$ tree Cluster_template/
+Cluster_template/
+├── cluster.ini
+├── cluster_token.txt
+└── Master
+    ├── modoverrides.lua
     ├── server.ini
     └── worldgenoverride.lua
 ```
 
 *   `cluster.ini`;存放着 Cluster 的配置信息;如下:
-    
+
     ```ini
     [GAMEPLAY]
     game_mode = survival
@@ -53,10 +55,10 @@ Cluster_template/
     [NETWORK]
     lan_only_cluster = false
     offline_cluster = false
-    cluster_description = 
-    cluster_name = 
+    cluster_description =
+    cluster_name =
     server_intention = social
-    cluster_password = 
+    cluster_password =
     cluster_intention = cooperative
 
     [ACCOUT]
@@ -86,20 +88,20 @@ Cluster_template/
 *   `Master/worldgenoverride.lua`;自定义地表世界,如资源多少,地图大小之类的;参见'自定义地表世界'.
 
 *   `Master/server.ini`;地表世界的配置.如下:
-    
+
     ```ini
     [SHARD]
     is_master = true
     ```
-    
+
     -   这里我就知道这么多,具体可以去[forums.kleientertainment.com][0]搜一搜.
 
 
 
 ## 参考
 
-1.  [Dedicated Server Quick Setup Guide - Linux][1]   
-2.  [Dedicated Server Command Line Options Guide][2]   
+1.  [Dedicated Server Quick Setup Guide - Linux][1]
+2.  [Dedicated Server Command Line Options Guide][2]
 
 [0]: <http://forums.kleientertainment.com>
 [1]: <http://forums.kleientertainment.com/topic/64441-dedicated-server-quick-setup-guide-linux/> "Dedicated Server Quick Setup Guide - Linux"

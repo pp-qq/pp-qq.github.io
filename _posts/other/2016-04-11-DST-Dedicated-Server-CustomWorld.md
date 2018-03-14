@@ -1,5 +1,7 @@
 ---
 title: 饥荒专用服务器-自定义世界
+subtitle: 自定义世界
+tags: [饥荒]
 ---
 
 ## 一般步骤
@@ -11,13 +13,13 @@ title: 饥荒专用服务器-自定义世界
 
     -   很显然,'worldgenoverride.lua'只有在世界第一次启动时才会运行创建世界.将'worldgenoverride.lua'
         放到已经存在的 Cluster 中并不会起作用.
-    
+
 3.  以新建 Cluster 为名启动饥荒专用服务器.
-    
 
 
 
-[0]: <http://www.lyun.me/lyun/1191> 
+
+[0]: <http://www.lyun.me/lyun/1191>
 
 
 

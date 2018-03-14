@@ -1,5 +1,6 @@
 ---
 category: sqlite
+tags: [sqlite]
 ---
 
 # 简介

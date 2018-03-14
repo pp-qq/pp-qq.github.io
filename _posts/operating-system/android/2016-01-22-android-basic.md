@@ -1,5 +1,8 @@
 ---
-title: Android开发-乱七八糟
+title: "Android 开发"
+subtitle: "SDK, NDK, Android 项目流程"
+hidden: false
+tags: [Android, "Android NDK"]
 ---
 
 # WHAT
@@ -10,7 +13,7 @@ title: Android开发-乱七八糟
 ## platform-tools
 *   platform-tools;存放着一些 build-tools,这些 build-tools 会周期性更新以与 Android 新
     平台兼容;这也就是为什么将其与 basic sdk tools 分开放置的原因.
-  
+
 
 # Android NDK 介绍
 
@@ -32,13 +35,13 @@ title: Android开发-乱七八糟
     以下问题:
     *   memory allocated in one library, and freed in the other would leak or even
         corrupt the heap.
-    *   exceptions raised in libfoo.so cannot be caught in libbar.so (and may 
+    *   exceptions raised in libfoo.so cannot be caught in libbar.so (and may
         simply crash the program).
     *   the buffering of std::cout not working properly.
 *   当选择 shared runtimes 时,就不会有这些问题,只不过此时在 APP 启动时,应该按照依赖顺序来
     依次加载 so.如:现有`libfoo.so`,`libbar.so`,`libstlport_shared.so`;其中`libfoo.so`依赖
     `libbar.so`;`libstlport_shared.so`又被`libbar.so`,`libfoo.so`依赖;则应该:
-    
+
     ```java
     static {
         System.loadLibrary("stlport_shared");
@@ -50,11 +53,11 @@ title: Android开发-乱七八糟
 ## 找不到 so
 *   现有`libfoo.so`,`libgnustl_shared.so`;其中`libfoo.so`依赖`libgnustl_shared.so`.
     然后如下代码会提示:`java.lang.UnsatisfiedLinkError: Cannot load library: libgnustl_shared.so`;
-    
+
     ```java
     static {
         System.loadLibrary("foo");
-    }    
+    }
     ```
     而下面代码则正常:
 
@@ -62,7 +65,7 @@ title: Android开发-乱七八糟
     static {
         System.loadLibrary("gnustl_shared");
         System.loadLibrary("foo");
-    }    
+    }
     ```
     WHY?
 *   `System.loadLibrary('foo')` 会调用`dlopen()`,然后解析出`libfoo.so`依赖着`libgnustl_shared.so`;

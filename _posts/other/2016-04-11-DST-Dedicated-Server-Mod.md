@@ -1,5 +1,7 @@
 ---
-title: 饥荒专用服务器-Mod使用
+title: 饥荒专用服务器
+subtitle: "Mod 使用"
+tags: [饥荒]
 ---
 
 ## 下载
@@ -23,11 +25,11 @@ workshop-572538624/
 
 *   在`$(CLUSTER_DIR)/Master/modoverrides.lua`中指定指定 Cluster 中地表世界中会启用的插
     件以及选项值.其内容如下:
-    
+
     ```lua
     return
     {
-        ["workshop-375859599"] = { 
+        ["workshop-375859599"] = {
             enabled = true
         },
         ["workshop-347079953"] = {

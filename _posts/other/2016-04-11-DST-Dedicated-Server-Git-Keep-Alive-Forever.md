@@ -1,5 +1,8 @@
 ---
-title: 饥荒专用服务器-Git Keep Alive Forever
+title: 饥荒专用服务器
+subtitle: Git Keep Alive Forever
+hidden: false
+tags: [饥荒, "Git 小用"]
 ---
 
 ## 前言
@@ -11,7 +14,7 @@ title: 饥荒专用服务器-Git Keep Alive Forever
 ```shell
 ├── cluster.ini
 ├── cluster_token.txt
-└── Master 
+└── Master
     ├── modoverrides.lua
     ├── save # 地表世界的存档
     │   ├── boot_modindex
@@ -53,7 +56,7 @@ title: 饥荒专用服务器-Git Keep Alive Forever
 
 *   下面存放着当前世界中存在的用户,以及各个用户的具体信息.如上,世界中有 5 个用户.每一个用户的数据
     信息保存在各自的文件夹中.
-    
+
 *   当用户连接到专用服务器中时:
     -   若在 session/$(ID) 下没有以该用户名(用户标识更准确一点)为目录名的目录存在,则表明用户是
         新用户,此时用户可以在客户端选择建立人物之类的.
@@ -69,7 +72,7 @@ title: 饥荒专用服务器-Git Keep Alive Forever
 
 ## 使用 git 来 Keep Live Forever
 
-*   incrontab
+*   使用 incrontab 在检测到文件变动时, 运行 `git add; git commit -m'随便一些事情'` 保存变动. 当死亡时, 使用 `git reset` 回退到一个存活时的时间点.
 
 
 

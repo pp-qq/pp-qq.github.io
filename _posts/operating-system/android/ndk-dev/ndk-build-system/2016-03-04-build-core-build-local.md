@@ -1,5 +1,6 @@
 ---
-title: build/core/build-local.mk 实现
+title: "build/core/build-local.mk 实现"
+tags: ["Android NDK"]
 ---
 
 ## 确定 NDK_ROOT
@@ -31,15 +32,15 @@ if (APP_PROJECT_PATH 存在) {
     else if (NDK_PROJECT_PATH != APP_PROJECT_PATH)
         输出 warning;
 } else {
-    if (NDK_PROJECT_PATH == 'null') { 
+    if (NDK_PROJECT_PATH == 'null') {
         此时将不试图检测 NDK_PROJECT_PATH 的值;
     } else if (NDK_PROJECT_PATH 未定义) {
         在当前目录以及其父目录中确定 AndroidManifest.xml 是否存在;若在其中某个目录中找到该文件,
         则该目录就是 NDK_PROJECT_PATH;
-        
+
         如果追溯到根目录后发现 AndroidManifest.xml 仍不存在,则检测当前目录以及其父目录确定 jni/Android.mk
         是否存在;若存在,则该目录就是 NDK_PROJECT_PATH;
-        
+
         如果还未确定 NDK_PROJECT_PATH 的值;报错.
     }
 }

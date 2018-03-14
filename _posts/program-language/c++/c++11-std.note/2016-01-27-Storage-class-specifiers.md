@@ -1,5 +1,8 @@
 ---
-title: C++11标准-Storage Class Specifiers
+title: "C++11 标准阅读"
+subtitle: "Storage Class Specifiers"
+hidden: false
+tags: ["C++"]
 ---
 
 # 前言

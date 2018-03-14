@@ -93,10 +93,6 @@ friends: [
     {
         title: "Go!Go!Go!",
         href: "https://go.hidva.com/"
-    },
-    {
-        title: "这里面真没有啥的",
-        href: "/private%3f/"
     }
 ]
 
@@ -109,5 +105,7 @@ defaults:
       layout: "post"
       author: "w@hidva.com"
       catalog: true
+      hidden: true
+
 
 

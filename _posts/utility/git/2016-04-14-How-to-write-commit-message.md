@@ -1,16 +1,18 @@
 ---
-title: Git-科学地书写 commit message
+title: "Git-科学地书写 commit message"
+hidden: false
+tags: [Git, 读后感]
 ---
 
 ## 前言
 
 科学地书写 commit message 有哪些好处:
-    
+
 -   可以利用脚本根据 commit message 很方便地生成 changlog.md
 -   可以在某些场合下过滤掉不重要的 commit;比如在使用二分查找修BUG的时候就可以过滤不重要的提交
 -   可以在浏览提交历史时提供更好的信息
 
--   以上我从来没遇到过,大概是因为以前书写 commit message 的方式不科学吧 
+-   以上我从来没遇到过,大概是因为以前书写 commit message 的方式不科学吧
 
 
 ## 如何书写
@@ -45,23 +47,23 @@ title: Git-科学地书写 commit message
 
 *   scope;指定了 commit 所做修改发生在哪些地方;如果程序按照模块化设计的话,这里可以填写本次 commit
     所做修改发生在的模块的模块名
-    
+
 *   subject;对本次 commit 所做修改的简短描述;应该注意以下情况:
-    
+
     -   首字母不要大写.
     -   结尾不要使用'.';
     -   use imperative, present tense(现在进行时..?): “change” not “changed” nor “changes”.
-    
+
     其实我觉得木有必要这样吧 @_@
-    
+
 
 ### Body 编写
 
 *   在 Body 编写上,[AngularJS Git Commit Message Conventions][0]就给了2点约束:
-    
+
     -   和 subject 一样 use imperative, present tense.
     -   包括本次 commit 所做修改的缘由以及与之前行为的比较.
-    
+
 *   那么按照我的理解就是,在 subject 中指定了 commit 所做修改的简短描述;那么在 Body 里面就应该
     详细描述一下 commit 所做修改了.
 
@@ -78,7 +80,7 @@ title: Git-科学地书写 commit message
 
 *   Breaking changes(我的理解是:不兼容的修改);若某次 Commit 做了不兼容的修改;则应该在 Footer
     中以 breaking change block 指出;breaking change block 的格式如下:
-    
+
     ```
     BREAKING CHANGE: 然后描述本次 commit 所做的修改;为何这样做;迁移注意事项.
     ```
