@@ -20,9 +20,7 @@ tags: [读后感, 开发经验]
 
 # 文档
 
-参见原文了解 README.md 的模板; README.md 依次包括: 是什么, QuickStart, 如何参与贡献.
-
-
+参见原文了解 README.md 的模板; README.md 依次包括: 是什么, QuickStart, 如何参与贡献. 原文 README.md 更局限于 js 这一类项目. 这里的 [README模板](https://gist.github.com/hidva/c82142a67ff332b3b448e63fba7adb6c) 更具通用性.
 
 # 参考
 
