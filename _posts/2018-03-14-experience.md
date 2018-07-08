@@ -3,6 +3,26 @@ title: 开发经验
 tags: [开发经验]
 ---
 
+## undefined macro AC_MSG_NOTICE
+
+如下, 编译 facebook/folly 提示错误; 本质原因是 aclocal 未加载 pkg.m4 导致; 执行 `find / -type f -name 'pkg.m4'` 找到 pkg.m4 路径之后, 将其 cp 到 `aclocal --print-ac-dir` 中即可解决. 如果 find 未找到 pkg.m4, 则表明系统未安装 pkg-config, 此时需要安装 pkg-config; 此时可以尝试再次编译来判断是否需要 cp pkg.m4, 毕竟一般情况下, 安装 pkg-config 时会自动完成这一步; 当然如果系统中存在多份 aclocal, 并且 pkg-config 自动拷贝时使用的 aclocal 与编译 folly 时使用的 aclocal 不一致的话, 仍然需要手动 cp;
+
+```sh
+configure.ac:131: warning: PKG_PROG_PKG_CONFIG is m4_require'd but not m4_defun'd
+m4/fb_check_pkg_config.m4:1: FB_CHECK_PKG_CONFIG is expanded from...
+configure.ac:131: the top level
+configure.ac:145: warning: PKG_PROG_PKG_CONFIG is m4_require'd but not m4_defun'd
+m4/fb_check_pkg_config.m4:1: FB_CHECK_PKG_CONFIG is expanded from...
+configure.ac:145: the top level
+configure.ac:172: warning: PKG_PROG_PKG_CONFIG is m4_require'd but not m4_defun'd
+m4/fb_check_pkg_config.m4:1: FB_CHECK_PKG_CONFIG is expanded from...
+configure.ac:172: the top level
+configure:16567: error: possibly undefined macro: AC_MSG_NOTICE
+      If this token and others are legitimate, please use m4_pattern_allow.
+      See the Autoconf documentation.
+autoreconf: /opt/compiler/gcc-4.8.2/bin/autoconf failed with exit status: 1
+```
+
 ## 语言风格
 
 对于一种编程语言的语言风格, 如命名习惯等, 首先以业界已有的规范为准, 比如 golang 语言风格就以 gofmt 为准, c++ 语言风格就以 google c++ 为准. 这里记录一些未被大佬们归纳的风格问题做法.
