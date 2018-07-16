@@ -3,6 +3,12 @@ title: 开发经验
 tags: [开发经验]
 ---
 
+## curl 与 100 continue
+
+(HTTP)  Maximum  time  in  seconds  that  you  allow curl to wait for a 100-continue response when curl emits an Expects: 100-continue header in its request. By default curl will wait one second. This option accepts decimal values! When curl stops waiting, it will continue as if the response  has been received.
+
+一般情况下, server 都能正确响应 "Expect: 100-continue", 但包不及某些用户自定义的 http server 不完全遵守 http 语义啊. 比如就像我遇到的强势找过来的用户质问为什么我们的分布式消息队列系统 Bigpipe 在收到消息之后要 1 秒后才能推送到他们的 server 上! 能找到是因为他们的 server 未正确响应 "Expect: 100-continue" 也是靠各种机缘才确定的啊!
+
 ## undefined macro AC_MSG_NOTICE
 
 如下, 编译 facebook/folly 提示错误; 本质原因是 aclocal 未加载 pkg.m4 导致; 执行 `find / -type f -name 'pkg.m4'` 找到 pkg.m4 路径之后, 将其 cp 到 `aclocal --print-ac-dir` 中即可解决. 如果 find 未找到 pkg.m4, 则表明系统未安装 pkg-config, 此时需要安装 pkg-config; 此时可以尝试再次编译来判断是否需要 cp pkg.m4, 毕竟一般情况下, 安装 pkg-config 时会自动完成这一步; 当然如果系统中存在多份 aclocal, 并且 pkg-config 自动拷贝时使用的 aclocal 与编译 folly 时使用的 aclocal 不一致的话, 仍然需要手动 cp;
