@@ -18,6 +18,8 @@ tags: [gcc]
 *   当在编译时开启了 Address Sanitizer,其会在每一次内存存取时添加额外的指令来检查将要访问的内存
     地址是否合法,并且在不合法时输出错误信息.
 
+按我理解, Asan 同时也有一些 hook 机制, 比如可能 hook 了 malloc, free 等内存分配函数. 本来我以为 asan 无法跨越 so 边界来着, 即如果 1.so 编译时未指定 asan, 主程序 main 链接了 1.so, 并且开启了 asan; 按我理解当 main 中访问 1.so 内分配的内存时, asan 应该会报错来着, 毕竟在 main asan 视角中, main 访问的内存未被分配过. 但实测发现 asan 能覆盖这种情况.
+
 ## 如何使用 Address Sanitizer
 
 ### gcc
