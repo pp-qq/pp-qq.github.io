@@ -2,6 +2,25 @@
 title: 开发经验
 tags: [开发经验]
 ---
+## zk unimplemented 报错
+
+实践发现, 在 zk observer proxy 机器上写操作会提示未实现错误. 怎么不会转发呢?!
+
+## sed, awk 学习
+
+参考资料: [sed](http://www.gnu.org/software/sed/manual/sed.html#Execution-Cycle), [awk](https://awk.readthedocs.io/en/latest/).
+
+关于对 sed, awk 的学习, 应该首先了解 sed, awk 的工作流程, 然后再根据具体需求学习详细章节. 以 sed 为例, 其大致工作流程就是按行遍历输入, 将每行交给用户提供的命令, 输出执行命令后的结果. 以 awk 为例, 与 sed 相似 awk 也是按行遍历, 只不过 awk 在提取一行之后, 会按照特定的分隔符将行分割为列数组, 特定的分隔符默认是空白字符, 可以通过 `-F` 指定其他字符, awk 会将列数组分别赋值给特定变量 `$1` 等, 然后执行用户提供命令. 话说回来 sed, awk 的作者们怎么对文本分析需求揣摩地那么透彻!!!
+
+## iostat
+
+常用使用命令 'iostat -x -d 磁盘设备或者分区 1'. 实践表明 iostat 用在磁盘分区, 比如 sdc1, sdd1 上时并不是很准确, 所以一般是用在整块磁盘上, 比如 sdc, sdd.
+
+iostat 结果中字段的意思 google 了解一下即可.
+
+## 磁盘与分区
+
+之前学习 linux 基础以及 extX 文件系统时了解过 `/dev/sda` 是指整块磁盘, `/dev/sda1` 是指 sda 磁盘上一个分区; 不过还是在入了分布式存储领域之后才扎扎实实感受到这些概念. 另外一般情况下在分布式存储系统节点上, 用作数据存储的磁盘一般只会有一个分区, 毕竟同一磁盘上所有分区会共享某些资源, 并不能实现并行效果.
 
 ## curl 与 100 continue
 
