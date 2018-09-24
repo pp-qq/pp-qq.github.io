@@ -7,7 +7,7 @@ tags: [开发经验]
 
 再说异步编程模式之前, 先了解一下, golang 是如何解决异步的; 按我理解, golang 是通过协程来解决异步的, 协程是什么呢, 协程就是一个逻辑执行流, 具有自己的当前指令指针, 以及局部变量这些状态. 协程必须运行在一个真实的线程中. 当协程执行到可能会阻塞的操作时, 此时 golang 运行时会在协程提交操作请求之后, 将协程置为挂起状态并从当前线程中移除, 当前线程继续运行其他协程; 另一方面 golang 运行时会检测协程提交的异步操作是否完成, 并在检测到异步操作完成之后, 更新之前被挂起的协程的一些状态, 比如将异步操作的结果赋值给协程相应的局部变量等, 然后选择一个线程执行协程. 即从协程的角度来看, 协程是串行执行的.
 
-所以可以参考 golang 的路子来异步编程, 具体实践参考 baidu/bigpipe/libbigpipe 中 AsyncPubPipelet 以及 Queue 类的实现. 以 AsyncPubPipelet 为例, AsyncPubPipelet 一个抽象链接有如下几个阶段:
+所以可以参考 golang 的路子来异步编程, 可以使用 folly 提供的 Promise/Future 工具. 具体实践参考百度 Bigpipe(如果以后开源了的话) 中 AsyncPubPipelet 以及 Queue 类的实现. 以 AsyncPubPipelet 为例, AsyncPubPipelet 一个抽象链接有如下几个阶段:
 
 1.  根据用户请求查询元信息服务获取用户数据所在副本组.
 2.  再次查询元信息服务获取副本组当前主节点信息.
@@ -16,11 +16,26 @@ tags: [开发经验]
 5.  写用户数据.
 6.  出错关闭.
 
+对应于代码如下:
+
+```CPP
+void AsyncPubPipelet::StartConn() {
+    cli_ = NewEvbCli(iothd_);
+    meta_->GetPipelet(opt_.Pipelet(), BPMeta::DONT_USE_CACHE).via(iothd_)
+            .then(&AsyncPubPipelet::OnPipeletInfo, this)
+            .then(&AsyncPubPipelet::OnBrokerGrp, this)
+            .via(nullptr)
+            .then(&AsyncPubPipelet::OnBPPipeline, this)
+            .then(&AsyncPubPipelet::OnConnResp, this);
+    return ;
+}
+```
+
 有如下几种机制来检测抽象链接的存活性.
 
 -   定时器, 会在抽象链接第 3 阶段建立链接之后安装一个定时器, 周期性触发一次, 触发逻辑中检测当前未被响应的请求是否超时. 如下:
 
-    ```c++
+    ```CPP
     // OnTick() 会周期性调用.
     template <typename R, typename W>
     void IOHelper<R, W>::OnTick() {
@@ -39,7 +54,7 @@ tags: [开发经验]
 
 -   每次写链接时都会检测是否出错. 如下:
 
-    ```c++
+    ```CPP
     folly::Future<folly::Unit> wf;
     // SendItem 使用了 facebook/folly AsyncSocket, facebook/wangle Pipeline, 会确保一旦一次 write 出错,
     // 后续所有 write 都会出错.
@@ -57,7 +72,7 @@ tags: [开发经验]
 
 -   利用 facebook/wangle 提供的 Pipeline 机制来检测, 如:
 
-    ```c++
+    ```CPP
     void readEOF(Context*) override {
         aplt_->Reset(folly::make_exception_wrapper<std::runtime_error>("ReadEOF"));
         return ;
@@ -70,7 +85,7 @@ tags: [开发经验]
 
 以上任一环节出错都会进入 Reset() 逻辑, Reset 会:
 
-```c++
+```CPP
 // Reset() 中某些操作, 比如下面的 pipeline close, 以及上面的逻辑链接存活检测机制都会触发嵌套 Reset 调用, 这里需要
 // 覆盖这种 case.
 void StartRst() noexcept {
@@ -133,7 +148,7 @@ void IOHelper<R, W>::OnConnClose(folly::exception_wrapper ex) {
 
 但某些场景下, 不能确保在 OnConnClose() 调用时不再有新回调的产生, 如此可用到另外一种内存管理方式: `weak_ptr` + `version`. 具体来说就是在构造 callback 时, callback 内部需要存放当前实例的 weakptr, 以及当前的版本. 同时在上述 Reset() 逻辑中需要自增当前版本. 大致如下:
 
-```c++
+```CPP
 struct DoneHelper {
     DoneHelper(uint64_t v, std::shared_ptr<Queue> &&sp):
         connver(v), q(std::move(sp)) {}
