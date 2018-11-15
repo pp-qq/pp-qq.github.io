@@ -19,7 +19,7 @@ tags: [开发经验]
 
 对应于代码如下:
 
-```CPP
+```c++
 void AsyncPubPipelet::StartConn() {
     cli_ = NewEvbCli(iothd_);
     meta_->GetPipelet(opt_.Pipelet(), BPMeta::DONT_USE_CACHE).via(iothd_)
@@ -36,7 +36,7 @@ void AsyncPubPipelet::StartConn() {
 
 -   定时器, 会在抽象链接第 3 阶段建立链接之后安装一个定时器, 周期性触发一次, 触发逻辑中检测当前未被响应的请求是否超时. 如下:
 
-    ```CPP
+    ```c++
     // OnTick() 会周期性调用.
     template <typename R, typename W>
     void IOHelper<R, W>::OnTick() {
@@ -55,7 +55,7 @@ void AsyncPubPipelet::StartConn() {
 
 -   每次写链接时都会检测是否出错. 如下:
 
-    ```CPP
+    ```c++
     folly::Future<folly::Unit> wf;
     // SendItem 使用了 facebook/folly AsyncSocket, facebook/wangle Pipeline, 会确保一旦一次 write 出错,
     // 后续所有 write 都会出错.
@@ -73,7 +73,7 @@ void AsyncPubPipelet::StartConn() {
 
 -   利用 facebook/wangle 提供的 Pipeline 机制来检测, 如:
 
-    ```CPP
+    ```c++
     void readEOF(Context*) override {
         aplt_->Reset(folly::make_exception_wrapper<std::runtime_error>("ReadEOF"));
         return ;
@@ -86,7 +86,7 @@ void AsyncPubPipelet::StartConn() {
 
 以上任一环节出错都会进入 Reset() 逻辑, Reset 会:
 
-```CPP
+```c++
 // Reset() 中某些操作, 比如下面的 pipeline close, 以及上面的逻辑链接存活检测机制都会触发嵌套 Reset 调用, 这里需要
 // 覆盖这种 case.
 void StartRst() noexcept {
@@ -149,7 +149,7 @@ void IOHelper<R, W>::OnConnClose(folly::exception_wrapper ex) {
 
 但某些场景下, 不能确保在 OnConnClose() 调用时不再有新回调的产生, 如此可用到另外一种内存管理方式: `weak_ptr` + `version`. 具体来说就是在构造 callback 时, callback 内部需要存放当前实例的 weakptr, 以及当前的版本. 同时在上述 Reset() 逻辑中需要自增当前版本. 大致如下:
 
-```CPP
+```c++
 struct DoneHelper {
     DoneHelper(uint64_t v, std::shared_ptr<Queue> &&sp):
         connver(v), q(std::move(sp)) {}

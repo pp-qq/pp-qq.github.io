@@ -21,7 +21,7 @@ Transport 按我理解可以将其视为一个特殊的 Handler; 其将数据写
 
 ClientBootstrap; 关于 ClientBootstrap 内存管理, 这个只能深入源码来进行梳理了, 话说回来异步编程加内存管理真是让人头大啊==. 这里以如下代码举例:
 
-```CPP
+```c++
 ClientBootstrap<TelnetPipeline> client;
 client.group(std::make_shared<folly::wangle::IOThreadPoolExecutor>(1));
 client.pipelineFactory(std::make_shared<TelnetPipelineFactory>());
