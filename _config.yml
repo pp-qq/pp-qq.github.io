@@ -93,6 +93,10 @@ friends: [
     {
         title: "Go!Go!Go!",
         href: "https://go.hidva.com/"
+    },
+    {
+        title: "sqlite3 源码阅读",
+        href: "https://go.hidva.com/'sqlite3src/"
     }
 ]
 
