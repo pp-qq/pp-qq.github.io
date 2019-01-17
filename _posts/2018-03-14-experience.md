@@ -3,6 +3,39 @@ title: 开发经验
 tags: [开发经验]
 ---
 
+## zk acl
+
+首先介绍一些概念. id, 字符串类型, 在 zk 中用来唯一标识一个个体, 即 zk service 会将 id 相同的两个连接认为是同一个个体发来的, 她们具有一样的权限. ZooKeeper supports pluggable authentication schemes. Ids are specified using the form scheme:id, where scheme is a the authentication scheme that the id corresponds to. 即 zk 将 id 的生成, 比较等操作全部交给 schema 标识的插件来执行. 在用户创建一个连接到 zk service 之后, 可以通过 `addauth schema authdata` 来添加 id 信息, 此时 zk service 会把 authdata 交给 schema 标识的插件. 若插件验证没毛病, 则生成 id 并绑定到当前连接上. 若插件验证 authdata 姿势不对, 则当前 zk session 很快会进入 auth failed 状态不再可用.
+
+acl, 形式为 (id, perms), 表明着 id 标识的实体具有的权限为 perms. 如果 unix 权限模块的 `rwx` 一样, 这里 perms 是 `rdcwa`, 每个字母表示的权限意义参见原文. 对于一个特定的 znode 而言, 其关联的 acl 信息会以 acl 数组形式记录. 若 id 不再该数组中, 则表明 id 标识的实体对该 znode 没有任何权限. 反之若 id 在数组中能找到一项与之对应的 acl 项, 则按照该项中的 perms 字段来判断 id 标识的实体具有的权限. 按我理解对于一个 zk session 而言, 其对于一个特定的 znode 节点具有的权限应该是该 zk session 所有关联的 id 在 znode 上具有的权限并集.
+
+在修改 znode 具有的 acl 时, 除了可以按照 schema 的规则硬编码 authdata 之外; 还可以通过 `auth` 这个特殊 schema 来设置, 如原文所说 auth doesn't use any id, 表示着当前 zk session 已经关联的所有 id. 在举例说明之前首先看下 digest schema authdata 编码规则, 用 python 描述如下:
+
+```py
+def digest(authdata):
+    parts = authdata.split(b':')
+    return parts[0] + b':' + base64.b64encode(hashlib.sha1(authdata).digest())
+```
+
+所以:
+
+```
+[zk: localhost:2181(CONNECTED) 7] setAcl /hidva digest:blog:uo7MDEe6ih83BFRte9n0eQImqeU=:ra
+```
+
+与
+
+```sh
+# digest(b'blog:hidva.com') 将返回 'blog:uo7MDEe6ih83BFRte9n0eQImqeU='.
+[zk: localhost:2181(CONNECTED) 0] addauth digest blog:hidva.com
+[zk: localhost:2181(CONNECTED) 0] setAcl /hidva auth::ra
+```
+
+是等价的.
+
+
+参考: [ZooKeeper access control using ACLs](http://zookeeper.apache.org/doc/r3.4.13/zookeeperProgrammers.html#sc_ZooKeeperAccessControl)
+
 ## zk 数据回退
 
 这里只是记录了我们在以某种方式操作 zk 集群时观察到的数据版本回退的情况, 具体为何会发生回退待今后有空时再进行深究. 事件的背景是, 我们现在有一台由 5 个 zk server 组成的 zk service, 现在需要为其再增加 5 台 zk server 组成一个有 10 台 zk server 的 zk service, 为何会执行这么个操作的背景这里咱就不深究了. 然后发现在执行这么个操作之后, zk 上的数据发生了回退. 而且现象是可复现的. 
