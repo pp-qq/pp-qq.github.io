@@ -3,6 +3,12 @@ title: 开发经验
 tags: [开发经验]
 ---
 
+## Shared Everything, Shared Nothing 究竟是什么
+
+Shared *; 是指分布式系统中实例之间共享资源的情况, 从而也说明了实例之间可能会存在的资源争抢程度, 这里的资源一般是指 CPU, IO, 内存等. shared nothing 表明该系统中实例之间未共享任何资源, 比如当实例部署在不同的节点上时. shared everything 表明实例之间共享了一切资源, 比如当实例部署在同一节点并且未在任何隔离时. 还有一种情况是 shared disk, 是指实例之间使用自己的私有 CPU 和 Memory, 共享存储系统, 现在火热的存储计算分离就是这种情况.
+
+参考: [Shared Everything和share-nothing区别](https://blog.csdn.net/seteor/article/details/10532085).
+
 ## zk acl
 
 首先介绍一些概念. id, 字符串类型, 在 zk 中用来唯一标识一个个体, 即 zk service 会将 id 相同的两个连接认为是同一个个体发来的, 她们具有一样的权限. ZooKeeper supports pluggable authentication schemes. Ids are specified using the form scheme:id, where scheme is a the authentication scheme that the id corresponds to. 即 zk 将 id 的生成, 比较等操作全部交给 schema 标识的插件来执行. 在用户创建一个连接到 zk service 之后, 可以通过 `addauth schema authdata` 来添加 id 信息, 此时 zk service 会把 authdata 交给 schema 标识的插件. 若插件验证没毛病, 则生成 id 并绑定到当前连接上. 若插件验证 authdata 姿势不对, 则当前 zk session 很快会进入 auth failed 状态不再可用.
