@@ -477,7 +477,7 @@ package; A package is a grouping of related types providing access protection an
 
 再来看一些琐碎的细节:
 
-import (static); 仅是会导入 name, 方便后续以 unqualified 形式, 即直接通过那个被 import 的 name 标识符来访问相应的实体; import 语句本身不会有任何实质上的类加载操作. 如下:
+import (static); 仅是会导入 name, 方便后续以 unqualified 形式, 即直接通过那个被 import 的 name 标识符来访问相应的实体; import 语句本身不会有任何实质上的类加载操作. 所以如果被 import 的类未在当前类中使用, 那么 import 语句是可以安全去掉的, 此时并不会执行被 import 类地 static 块以及 static 成员初始化等. 如下:
 
 ```java
 // ./wwtest/TestWW.java
