@@ -4,6 +4,28 @@ tags: [开发经验]
 ---
 
 
+# Prometheus 真是个好东西
+
+首先介绍一下 Prometheus 中的一些基本概念. 
+
+metric, The metric name specifies the general feature of a system that is measured. 比如对于 http server 来说 当前已收到请求总数 http_request_total 就是一个 metric.
+
+labels; 按我理解 labels 是 metric 的属性(或者称为维度), 以 http_request_total 为例, 它可以具有 http_method, http_path 等维度. any given combination of labels for the same metric name identifies a particular dimensional instantiation of that metric.
+
+time series, Prometheus fundamentally stores all data as time series: streams of timestamped values belonging to the same metric and the same set of labeled dimensions. 所以 Every time series is uniquely identified by its metric name and a set of key-value pairs. 在 prometheus 中, 通过 `<metric name>{<label name>=<label value>, ...}` 来作为 time series notation. 如 `http_request_total{method="POST", handler="/messages"}`. 
+
+Samples; Samples form the actual time series data. Each sample consists of: a float64 value, a millisecond-precision timestamp.
+
+Prometheus target; 使用 Prometheus  client libraries 来采集自身 metrics 的应用程序. 这里是 Prometheus server 主动从 Prometheus target 处采集数据, 而不是 target 主动推给 server, 按我理解怕是为了更方便地控制采集频率防止 prometheus server 压力过大吧.
+
+push gateway, a push gateway for supporting short-lived jobs; push gateway 也是一个普通的 prometheus target, short-lived job 可以随时将自己的 metrics push 到 prometheus gateway 上, 之后 prometheus server 会将数据从 push gateway 上拉取到本地.
+
+prometheus exporters. There are a number of libraries and servers which help in exporting existing metrics from third-party systems as Prometheus metrics. This is useful for cases where it is not feasible to instrument a given system with Prometheus metrics directly (for example, HAProxy or Linux system stats). 按我理解就是将目前第三方已有的 metric 系统接入到 prometheus 中, 比如对于 jvm 而言, 其自身会维护 gc 相关的 metric, 利用 jvm exporter 可以将这些 gc metric 导出到 prometheus 中, 从而方便后续可视化观看以及分析.
+
+metric types; These are currently only differentiated in the client libraries (to enable APIs tailored to the usage of the specific types) and in the wire protocol. The Prometheus server does not yet make use of the type information and flattens all data into untyped time series. 参见[prometheus官方文档](https://prometheus.io/docs/concepts/metric_types/)了解目前 prometheus 支持哪些 metric types. 按我理解, prometheus client lib 行为应该就类似一个 kv storage, key 为 metrics + labels 组合, value 为 metrics value. 即对于同一 metrics + label 组合, 任一时刻下只会存放着一个值. prometheus client lib 也不会存放着 application 设置该值时的时间戳, 时间戳应该是由 prometheus server 从 prometheus target 拉取数据时生成的. 对于 Histogram, Summary 类型的 metric, 此时 client lib 会维护一个指定时间窗口内的直方图, 在 prometheus server 采集 target 时, client lib 会根据直方图信息生成相应的值返回给 prometheus server.
+
+
+
 ## 深入了解 protobuf
 
 pb 的常规使用套路, 很简单, 就是先根据业务需求定义 pb 文件, pb 文件中描述了有哪些 message, 每个 message 有哪些字段, 每个字段是什么类型, 是否是必需的等字段元信息. 之后利用 pb 提供的编译器生成相应语言的代码. 完事后利用生成代码中的接口来将 message 对应着的结构体序列化为字节串, 或者从字节串反序列化出来 message 结构体.
