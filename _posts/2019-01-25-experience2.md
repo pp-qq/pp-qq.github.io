@@ -3,6 +3,16 @@ title: 开发经验-2
 tags: [开发经验]
 ---
 
+# MOCK 也是个好东西啊
+
+mock 是什么? 以及为什么需要 mock, 参见 [ForDummies](https://github.com/google/googletest/blob/master/googlemock/docs/ForDummies.md) 的解答: 
+>   When you write a prototype or test, often it's not feasible or wise to rely on real objects entirely. A mock object implements the same interface as a real object (so it can be used as one), but lets you specify at run time how it will be used and what it should do (which methods will be called? in which order? how many times? with what arguments? what will they return? etc).
+
+mock object 与 fake object 这两个概念的区别是什么. Fake objects have working implementations, but usually take some shortcut (perhaps to make the operations less expensive), which makes them not suitable for production. An in-memory file system would be an example of a fake. Mocks are objects pre-programmed with expectations, which form a specification of the calls they are expected to receive. Mock allows you to check the interaction between itself and code that uses it.
+
+mockito, java 常用的 mock 框架. powermock, PowerMock is a framework that extends other mock libraries such as Mockito with more powerful capabilities. 一方面 PowerMock uses a custom classloader and bytecode manipulation to enable mocking of static methods, constructors, final classes and methods, private methods, removal of static initializers and more. By using a custom classloader no changes need to be done to the IDE or continuous integration servers which simplifies adoption. 另一方面 Developers familiar with the supported mock frameworks will find PowerMock easy to use, since the entire expectation API is the same, both for static methods and constructors. PowerMock aims to extend the existing API's with a small number of methods and annotations to enable the extra features. 亲测在 PowerMockRunner 下, Powermock 对 static class/method 的 mock 仅在其所处的 `@Test` 方法内有效. 理所当然的一个结果.
+
+
 
 # Prometheus 真是个好东西
 
