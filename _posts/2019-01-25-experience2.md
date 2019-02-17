@@ -10,7 +10,7 @@ tags: [开发经验]
 
 metric, The metric name specifies the general feature of a system that is measured. 比如对于 http server 来说 当前已收到请求总数 http_request_total 就是一个 metric.
 
-labels; 按我理解 labels 是 metric 的属性(或者称为维度), 以 http_request_total 为例, 它可以具有 http_method, http_path 等维度. any given combination of labels for the same metric name identifies a particular dimensional instantiation of that metric.
+labels; 按我理解 labels 是 metric 的属性(或者称为维度), 以 http_request_total 为例, 它可以具有 http_method, http_path 等维度. any given combination of labels for the same metric name identifies a particular dimensional instantiation of that metric. 在使用 prometheus client library 更新某个带有 labels 的 metrics 时, 需要指定所有的 label 取值, 不然 client library 会报错的. While labels are very powerful, avoid overly granular metric labels. The combinatorial explosion of breaking out a metric in many dimensions can produce huge numbers of timeseries, which will then take longer and more resources to process. As a rule of thumb aim to keep the cardinality of metrics below ten, and limit where the cardinality exceeds that value. 按我理解是说一个 metric 对应的 time series 数目不宜过多, 比如不应该超过 10 个. ~~本来我以为这句话是说 metric 的 label 不宜过多.~~.
 
 time series, Prometheus fundamentally stores all data as time series: streams of timestamped values belonging to the same metric and the same set of labeled dimensions. 所以 Every time series is uniquely identified by its metric name and a set of key-value pairs. 在 prometheus 中, 通过 `<metric name>{<label name>=<label value>, ...}` 来作为 time series notation. 如 `http_request_total{method="POST", handler="/messages"}`. 
 
