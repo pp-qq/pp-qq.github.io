@@ -43,7 +43,7 @@ block, A block is a group of zero or more statements between balanced braces and
 
 然后就是一些琐碎的知识点, 毕竟 java 大体我还是了解的, 除了那么点细节:
 
-instanceof operator; keep in mind that null is not an instance of anything, 这个还真没有注意到过.
+instanceof operator; keep in mind that null is not an instance of anything, 这个还真没有注意到过. 另外关于数组类型 instanceof 关系, 参见 [Subtyping among Array Types](https://docs.oracle.com/javase/specs/jls/se8/html/jls-4.html#jls-4.10.3) 官方解释.
 
 The switch Statement; A switch works with the byte, short, char, and int primitive data types. It also works with enumerated types, the String class, and a few special classes that wrap certain primitive types: Character, Byte, Short, and Integer. 注意当 switch works with reference type 时, 会使用 `.equals()` 方法来进行比较; 所以若 switch works with null, 则 NPE. The body of a switch statement is known as a switch block. A statement in the switch block can be labeled with one or more case or default labels. The switch statement evaluates its expression, then executes all statements that follow the matching case label. 这里把 `case`, `default` 作为 label 看待感觉很合理, 如下之前一直觉得执行流从 `#1` 跳到 `#2` 很违和, 毕竟她们属于不同的 case 是吧, 现在把 case 视为 label 就很合理了, 这时 `#1` 与 `#2` 在同一个 block 中, 从 `#1` 执行到 `#2` 理所当然.
 
@@ -122,32 +122,64 @@ public class Test {
 }
 ```
 
-Arbitrary Number of Arguments; 下面用个例子来讲解变长参数使用相关:
+Arbitrary Number of Arguments; 根据 [这里](https://docs.oracle.com/javase/8/docs/technotes/guides/language/varargs.html) 可知, 对于形如 `f(int a, Object... args)` 的变长参数其实际原型是 `f(int a, Object[] args)`. 对于 args 对应实参取值, 仅当用户传入参数 params 类型满足 `params instanceof TYPE(args) == true` 时, 会将 params 直接赋值给 args. 其余情况下, 编译器总会静默按照 args 类型构建一个数组, 之后把用户传入参数添加到数组中, 此时 args 引用编译器静默构建出来的数组. 下面用个例子来讲解变长参数使用相关:
 
 ```java
 public class Test {
     public static void f(Object... objs) {
-        System.out.println(objs);
+        System.out.println(System.identityHashCode(objs));
         if (objs != null) {
             System.out.println(objs.length);
         }
     }
   
     public static void main(String[] args) {
-        f();  // 此时 f() 内, objs 不为 null, 而是一个 length 为 0 的空数组.
-        f(1, 2, 3);
-        int[] i = {1, 2, 3};
-        f(i);  // objs.length = 1, 而不是 i.length
         Object[] objs1 = {4, 5};
-        System.out.println(objs1);  
-        f(objs1);  // objs = objs1
+        System.out.println(System.identityHashCode(objs1));  
+        f(objs1);  // objs = objs1!
+
         Object[] objs2 = null;
-        System.out.println(objs2);
-        f(objs2);  // objs = objs2
+        System.out.println(System.identityHashCode(objs2));
+        f(objs2);  // objs = objs2!
+
+        String[] args2 = {"blog.hidva.com", "go.hidva.com"};
+        System.out.println(System.identityHashCode(args2));
+        f(args2);  // objs == args2!!! 毕竟 args2 instanceof Object[]
+
+        Long[] args4 = {0x66ccffL, 0xffcc66L};
+        System.out.println(System.identityHashCode(args4));
+        f(args4);  // args4 == objs; 
+
+        long[] args3 = {0x66ccffL, 0xffcc66L};
+        System.out.println(System.identityHashCode(args3));
+        f(args3);  // args3 != objs; 毕竟 args instanceof Object[] == false.
+
+        f();  // 此时 f() 内, objs 不为 null, 而是一个 length 为 0 的空数组.
+        return ;
     }
 
 }
 ```
+
+下面再用一个例子演示 varargs 与模板结合时的情况:
+
+```java
+// Arrays.asList 声明.
+public static <T> List<T> asList(T... a) {
+    return new ArrayList<>(a);
+}
+```
+
+根据上面所述, 该声明等同于:
+
+```java
+// Arrays.asList 声明.
+public static <T> List<T> asList(T[] a) {
+    return new ArrayList<>(a);
+}
+```
+
+因此在调用 asList() 时, 若实参 params 仅有一个并且为数组类型 TYPE[], 那么 T 会被实例化为 TYPE, 此时 params == a. 其他情况下编译器总会静默构建一个新数组, T 与 a 将赋值为新数组.
 
 new operator; java 中 `new` 作为一个运算符, 其 requires a single, postfix argument: a call to a constructor. The name of the constructor provides the name of the class to instantiate. 然后 returns a reference to the object it created. 所以 `int j = new Rectangle().height + 33` 是一个合法的表达式.
 
