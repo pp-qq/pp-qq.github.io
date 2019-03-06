@@ -3,7 +3,7 @@ title: 开发经验-2
 tags: [开发经验]
 ---
 
-# MOCK 也是个好东西啊
+## MOCK 也是个好东西啊
 
 mock 是什么? 以及为什么需要 mock, 参见 [ForDummies](https://github.com/google/googletest/blob/master/googlemock/docs/ForDummies.md) 的解答: 
 >   When you write a prototype or test, often it's not feasible or wise to rely on real objects entirely. A mock object implements the same interface as a real object (so it can be used as one), but lets you specify at run time how it will be used and what it should do (which methods will be called? in which order? how many times? with what arguments? what will they return? etc).
@@ -14,7 +14,7 @@ mockito, java 常用的 mock 框架. powermock, PowerMock is a framework that ex
 
 
 
-# Prometheus 真是个好东西
+## Prometheus 真是个好东西
 
 首先介绍一下 Prometheus 中的一些基本概念. 
 
@@ -34,7 +34,23 @@ prometheus exporters. There are a number of libraries and servers which help in 
 
 metric types; These are currently only differentiated in the client libraries (to enable APIs tailored to the usage of the specific types) and in the wire protocol. The Prometheus server does not yet make use of the type information and flattens all data into untyped time series. 参见[prometheus官方文档](https://prometheus.io/docs/concepts/metric_types/)了解目前 prometheus 支持哪些 metric types. 按我理解, prometheus client lib 行为应该就类似一个 kv storage, key 为 metrics + labels 组合, value 为 metrics value. 即对于同一 metrics + label 组合, 任一时刻下只会存放着一个值. prometheus client lib 也不会存放着 application 设置该值时的时间戳, 时间戳应该是由 prometheus server 从 prometheus target 拉取数据时生成的. 对于 Histogram, Summary 类型的 metric, 此时 client lib 会维护一个指定时间窗口内的直方图, 在 prometheus server 采集 target 时, client lib 会根据直方图信息生成相应的值返回给 prometheus server.
 
+### Prometheus Query
 
+再看 prometheus 提供的 query language PromQL 之前, 先看下 prometheus 提供的两个 query api: [Instant queries](https://prometheus.io/docs/prometheus/latest/querying/api/#instant-queries), [Range queries](https://prometheus.io/docs/prometheus/latest/querying/api/#range-queries). 其中 instant queries api 中 query 参数可传递任何合法 PromQL, api 会返回 PromQL 执行结果. range queries api 中的 query 参数可传递任何类型为 Scalar 或者 instant Vector 的 PromQL, 按我理解 range queries api 大致执行流程就是在时间范围 [start, end] 内每 step 秒执行一次 query, 收集返回的 instance vector/scalar, 之后返回所有收集结果.
+
+关于 PromQL 学习, 可以直接参考 prometheus 官方文档 [querying prometheus](https://prometheus.io/docs/prometheus/latest/querying/basics/). 这里通过例子来介绍一些拗口的情况. 
+
+`group_left`, `group_right`; 分别表明了 left, right 操作数作为 one-to-many 中 many 角色. 如 `A / group_left B`, 表明对于 B 中一个 entry 来说, A 中存在多个 entry 与之 match, 这里 match 规则既是 One-to-one vector matches 中采用的规则. 同样 `A / group_right B`, 则表明对于 A 中一项 $$a_i$$, B 中可能存在多项 $$b_{i_0}$$, $$b_{i_1}$$, ..., $$b_{i_n}$$ 与之 match; 此时 $$\frac{a_i}{b_{i_0}}$$, $$\frac{a_i}{b_{i_1}}$$, ..., $$\frac{a_i}{b_{i_n}}$$ 组成了 `A / group_right B` 的运算结果项, 也就是 $$a_i$$ 会多次参与运算.
+
+Aggregation operators 的 without, by; 在与非 topk, bottomk operators 连用时, without, by 一方面定义了基于哪些 label 来做 group by, 另一方面也控制着运算结果中 label 集合. 在与 topk, bottomk 连用时, 仅用来控制基于哪些 label 来做 group by. 如下图:
+
+![]({{site.url}}/assets/prometheus_input.png)
+![]({{site.url}}/assets/sum_output.png)
+![]({{site.url}}/assets/topk_output.png)
+
+count_values 是统计相同的值出现的次数, ~~然后我并没有搞懂该聚合函数意义, 尤其是 prometheus 使用 float64 来存储 value, 浮点类型的等值判断可真的是~~. 这里仍以上述 input 做作 count_values 聚合, 如下图:
+
+![]({{site.url}}/assets/count_values_output.png)
 
 ## 深入了解 protobuf
 
