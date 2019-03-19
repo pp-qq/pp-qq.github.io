@@ -10,6 +10,8 @@ mock 是什么? 以及为什么需要 mock, 参见 [ForDummies](https://github.c
 
 mock object 与 fake object 这两个概念的区别是什么. Fake objects have working implementations, but usually take some shortcut (perhaps to make the operations less expensive), which makes them not suitable for production. An in-memory file system would be an example of a fake. Mocks are objects pre-programmed with expectations, which form a specification of the calls they are expected to receive. Mock allows you to check the interaction between itself and code that uses it.
 
+mock 不应该改变接口的行为. 尤其是在 java 中使用 Mockito 时, 如 `obj = Mockito.mock(SomeClass.class)`, 此时 SomeClass 所有 public method 均被 mock 了, 此时需要一一 check mock 有没有改变每一个 public method 的行为. 所以最好还是使用 `obj = Mockito.mock(SomeClass.class, Mockito.CALLS_REAL_METHODS)`, 然后针对需要被 mock 的方法进行一一 mock. 曾遇到一个本该总是抛出异常的方法被隐式 mock 了, 导致该函数正常返回了 null, 然后这个方法又被我在一个关键链路调用了, 由于被 mock 了, 导致异常没抛出来, 导致在跑单测时链路运行正常, 还好上线前灵光一闪发现了==!
+
 
 ## Prometheus 真是个好东西
 
