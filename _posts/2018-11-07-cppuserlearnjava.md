@@ -10,28 +10,28 @@ tags: [java]
 个人觉得比较适合 C++er 的 java 入门入作; 毕竟 java 与 C++ 大体上是非常相似的, 比如 java static nested class 就是等同于 C++ 内部类的存在嘛, 所以没必要再耗费精力通过一本书来系统地学习 java 了. 但是 java 又有一些细节与 C++ 很不一样, 比如: java inner class instance 居然与一个 enclosing class instance 关联, 该文档主要是用来覆盖这些琐碎的细节的. 总之绝对不能依仗对 C++ 的熟练来想当然 java 的语言特性, 模棱两可的地方一定要通过 java tutorials 或者 java spec 明确了!
 
 
-# Object-Oriented Programming Concepts 
+# Object-Oriented Programming Concepts
 
 
-主要关注 state, behavior, fields, methods, data encapsulation, package 这几个概念, 虽然早有所闻, 但这里书面化的描述还是挺稀奇的. 其中 state, behavior 用来描述现实世界中的 object, 类似于 java object 的 fields, methods. methods, Methods operate on an object's internal state and serve as the primary mechanism for object-to-object communication. Hiding internal state and requiring all interaction to be performed through an object's methods is known as data encapsulation. A package is a namespace that organizes a set of related classes and interfaces. 
+主要关注 state, behavior, fields, methods, data encapsulation, package 这几个概念, 虽然早有所闻, 但这里书面化的描述还是挺稀奇的. 其中 state, behavior 用来描述现实世界中的 object, 类似于 java object 的 fields, methods. methods, Methods operate on an object's internal state and serve as the primary mechanism for object-to-object communication. Hiding internal state and requiring all interaction to be performed through an object's methods is known as data encapsulation. A package is a namespace that organizes a set of related classes and interfaces.
 
 "is a" relationship; google 一下了解这个概念的具体定义.
 
 # Language Basics
 
-主要是了解 java 中一些基本概念, 这些概念倒也不是不晓得; 主要为了更无障碍地学习后续章节, 这里做一下记录不至于后面看到了眼生. 
+主要是了解 java 中一些基本概念, 这些概念倒也不是不晓得; 主要为了更无障碍地学习后续章节, 这里做一下记录不至于后面看到了眼生.
 
-Instance Variables (Non-Static Fields). Class Variables (Static Fields). Local Variables, Similar to how an object stores its state in fields, a method will often store its temporary state in local variables; 这里将 local variables 视为 method 存放 temporary state 的观点还是挺稀奇的. state, 状态, 目前发现确实是编程中一个很重要的概念啊, 尤其是在异步编程模型中. Parameters, Parameters refers to the list of variables in a method declaration. Arguments, Arguments are the actual values that are passed in when the method is invoked. fields, Non-Static Fields, Static Fields 的统称. variables, Instance Variables (Non-Static Fields), Class Variables (Static Fields), Local Variables, Parameters 的统称. member, A type's fields, methods, and nested types are collectively called its members, 这里 type 应该是指 class, 注意 Constructors are not members. 
+Instance Variables (Non-Static Fields). Class Variables (Static Fields). Local Variables, Similar to how an object stores its state in fields, a method will often store its temporary state in local variables; 这里将 local variables 视为 method 存放 temporary state 的观点还是挺稀奇的. state, 状态, 目前发现确实是编程中一个很重要的概念啊, 尤其是在异步编程模型中. Parameters, Parameters refers to the list of variables in a method declaration. Arguments, Arguments are the actual values that are passed in when the method is invoked. fields, Non-Static Fields, Static Fields 的统称. variables, Instance Variables (Non-Static Fields), Class Variables (Static Fields), Local Variables, Parameters 的统称. member, A type's fields, methods, and nested types are collectively called its members, 这里 type 应该是指 class, 注意 Constructors are not members.
 
-Primitive Data Types; java 中共有 8 种 primitive data types: byte, short, int, long, float, double, char, boolean. 在 >= javaSE8 之后, java 也通过类库的方式支持了 unsigned int, unsigned long, 具体参见原文了解. Autoboxing and Unboxing; 编译器会在需要的时候将数据在 primitive types 类型与 corresponding object wrapper classes 类型来回转换; autoboxing 是指编译器将数据从 primitive type 转换为相应的 reference type; unboxing 是指编译器从 reference type 转换为相应的 primitive type; ~~为啥不叫作 AutoUnboxing???~~; 
+Primitive Data Types; java 中共有 8 种 primitive data types: byte, short, int, long, float, double, char, boolean. 在 >= javaSE8 之后, java 也通过类库的方式支持了 unsigned int, unsigned long, 具体参见原文了解. Autoboxing and Unboxing; 编译器会在需要的时候将数据在 primitive types 类型与 corresponding object wrapper classes 类型来回转换; autoboxing 是指编译器将数据从 primitive type 转换为相应的 reference type; unboxing 是指编译器从 reference type 转换为相应的 primitive type; ~~为啥不叫作 AutoUnboxing???~~;
 
 reference type; Java Language Specification 中明确定义了什么是 reference type, 对于现在来说, 可以认为除 primitive data types 来说之外的所有 type 都是 reference type.
 
-Default Values; 对于 java 支持的 4 类 variables, 针对 field 来说, this default will be zero or null, depending on the data type, 具体参见原文表格. 对于 local variable 来说, the compiler never assigns a default value to an uninitialized local variable, 需要程序员自己整. 
+Default Values; 对于 java 支持的 4 类 variables, 针对 field 来说, this default will be zero or null, depending on the data type, 具体参见原文表格. 对于 local variable 来说, the compiler never assigns a default value to an uninitialized local variable, 需要程序员自己整.
 
 Literals; A literal is the source code representation of a fixed value; literals are represented directly in your code without requiring computation. 这个倒是看过的对 literals 概念来说最合适的定义了, 就算是 golang specification 中也未明确定义 literal. 参见原文了解常见的 literal 写法.
 
-Array Initializers, Array Creation Expressions;  javase tutorial 文档介绍的很不详细, 还是需要根据 java specification 来看细节. 比如 `int[][] i = new int[f()][g{()]` 中当 `f()` 抛出异常时, `g()` 是否还会被调用? 以及 `i.length` 是等于 `f()` 还是 `g()` 等. 
+Array Initializers, Array Creation Expressions;  javase tutorial 文档介绍的很不详细, 还是需要根据 java specification 来看细节. 比如 `int[][] i = new int[f()][g{()]` 中当 `f()` 抛出异常时, `g()` 是否还会被调用? 以及 `i.length` 是等于 `f()` 还是 `g()` 等.
 
 Operator Precedence; 参见原文表格了解各个操作符的优先级次序. When operators of equal precedence appear in the same expression, a rule must govern which is evaluated first. All binary operators except for the assignment operators are evaluated from left to right; assignment operators are evaluated right to left.
 
@@ -63,7 +63,7 @@ case 3:
 
 老规矩, 先来看一些基本概念:
 
-method signature; 由 the method's name and the parameter types 组成.
+method signature; 由 the method's name and the parameter types 组成. 对于重载的函数, Java 是在编译期确定待调用的函数.
 
 covariant return type; means that the return type is allowed to vary in the same direction as the subclass. 既 You can override a method and define it to return a subclass of the original method, 如:
 
@@ -72,17 +72,17 @@ class T1 {
     public Object f() {
         System.out.printf("T1::f; %s\n", this);
         return new Object();
-    }    
+    }
 };
 
 
 public class Test extends T1 {
     @Override
-    public String f() {  
+    public String f() {
         System.out.printf("Test::f; %s\n", this);
         return "hell";
     }
-    
+
     public static void main(String[] args) {
         Test t = new Test();
         t.f();
@@ -92,7 +92,7 @@ public class Test extends T1 {
 
 explicit constructor invocation; 语义上等同于 C++ 中的委托构造函数; 语法上通过 `this(...)` 来调用其他构造函数, If present, the invocation of another constructor must be the first line in the constructor.
 
-nested class, enclosing class; The Java programming language allows you to define a class within another class. Such a class is called a nested class. And the another class is called the enclosing class. 
+nested class, enclosing class; The Java programming language allows you to define a class within another class. Such a class is called a nested class. And the another class is called the enclosing class.
 
 static nested class, inner class; Nested classes are divided into two categories: static and non-static. Nested classes that are declared static are called static nested classes. Non-static nested classes are called inner classes. static nested class 等同于 C++ 中的内部类. 而 inner class 则非常特殊了, 具体见下.
 
@@ -132,10 +132,10 @@ public class Test {
             System.out.println(objs.length);
         }
     }
-  
+
     public static void main(String[] args) {
         Object[] objs1 = {4, 5};
-        System.out.println(System.identityHashCode(objs1));  
+        System.out.println(System.identityHashCode(objs1));
         f(objs1);  // objs = objs1!
 
         Object[] objs2 = null;
@@ -148,7 +148,7 @@ public class Test {
 
         Long[] args4 = {0x66ccffL, 0xffcc66L};
         System.out.println(System.identityHashCode(args4));
-        f(args4);  // args4 == objs; 
+        f(args4);  // args4 == objs;
 
         long[] args3 = {0x66ccffL, 0xffcc66L};
         System.out.println(System.identityHashCode(args3));
@@ -183,7 +183,7 @@ public static <T> List<T> asList(T[] a) {
 
 new operator; java 中 `new` 作为一个运算符, 其 requires a single, postfix argument: a call to a constructor. The name of the constructor provides the name of the class to instantiate. 然后 returns a reference to the object it created. 所以 `int j = new Rectangle().height + 33` 是一个合法的表达式.
 
-Access level modifiers; Access level modifiers determine whether other classes can use a particular field or invoke a particular method. There are two levels of access control: 
+Access level modifiers; Access level modifiers determine whether other classes can use a particular field or invoke a particular method. There are two levels of access control:
 
 -    At the top level—public, or package-private (no explicit modifier).
 -    At the member level—public, private, protected, or package-private (no explicit modifier). 此时 The protected modifier specifies that the member can only be accessed within its own package (as with package-private) and, in addition, by a subclass of its class in another package, 倒是与 C++ 不太一样了哈.
@@ -202,7 +202,7 @@ if (false) {
 i = 44;
 ```
 
-A final method cannot be overridden in a subclass. 
+A final method cannot be overridden in a subclass.
 
 static initialization block, Initializer blocks; 其语法很是简单. 关键是语义, 尤其是执行次序, 原文并未明确指定执行次序, 可以通过下面的例子来看一下, 不过最好还是通过 java spec 文档了解.
 
@@ -211,14 +211,14 @@ public class Test {
     public Test() {
         f("005");
     }
-    
+
     public static int f(String desc) {
         System.out.println("Test; " + desc);
         return 1;
     }
 
     static int i1 = f("1");
-    
+
     static {
         f("2");
     }
@@ -228,15 +228,15 @@ public class Test {
     static {
         f("4");
     }
-    
+
     int i3 = f("001");
-    
+
     {
-        f("002");    
+        f("002");
     }
-        
+
     int i4 = f("003");
-    
+
     {
         f("004");
     }
@@ -277,9 +277,9 @@ public class Test {
     }
 
 }
-``` 
+```
 
-Inner Class Serialization; Serialization of inner classes, including local and anonymous classes, is strongly discouraged. 按我理解就是 java 存在两种层次的 spec, java language sepc, jvm spec; 为了在不变更 jvm spec 的基础上实现 inner class 等这种 language construct, 不得不使用一些魔法(synthetic constructs); 在 inner class serialization, inner class 反射这些场景中就不得不暴漏一些魔法细节; 然后不同 jvm 厂商可能会使用不同的魔法来实现 inner class 这种 language construct; 所以一个 jvm 厂商在 inner class serialization 生成物中包含的细节可能就不会被其他 jvm 厂商识别; 就是存在不兼容性. 
+Inner Class Serialization; Serialization of inner classes, including local and anonymous classes, is strongly discouraged. 按我理解就是 java 存在两种层次的 spec, java language sepc, jvm spec; 为了在不变更 jvm spec 的基础上实现 inner class 等这种 language construct, 不得不使用一些魔法(synthetic constructs); 在 inner class serialization, inner class 反射这些场景中就不得不暴漏一些魔法细节; 然后不同 jvm 厂商可能会使用不同的魔法来实现 inner class 这种 language construct; 所以一个 jvm 厂商在 inner class serialization 生成物中包含的细节可能就不会被其他 jvm 厂商识别; 就是存在不兼容性.
 
 Local Classes; Local classes are classes that are defined in a block. Local classes in static methods, can only refer to static members of the enclosing class. Local classes in non-static methods, 等同于 inner class, 此时 local class instance 与特定的 enclosing class instance(目测只能是 this) 关联, 可以直接访问 enclosing class non-static fields. In addition, a local class has access to local variables. When a local class accesses a local variable or parameter of the enclosing block, it captures that variable or parameter. 按我理解, 这里 capature 的意思是指当 local calss 引用 local variables 或者 parameters 时, 此时就会像 C++ lambda 表达式捕捉一样, java 编译器就会在 local class 中额外添加一些 non-static fields, 这些 fields 类型与被引用的 local variables 一致; 在构造 local class instance 时, 会将被引用的 local variables 以传值的方式传递给 local class constructor 以此初始化这些编译器添加的 non-static fields. 可以自己整几个 local class 例子试一试. 原文同时指出: a local class can access local variables and parameters of the enclosing block that are final or effectively final. 按我理解这里同样也是一些主观因素导致的, 可能 java 作者认为如果允许 local class access any local variables 那么此时的行为可能会使一些 java rd 们迷惑. A local class can have static members provided that they are constant variables. 除此之外 local class 不允许其他 static member 了.
 
@@ -306,7 +306,7 @@ public enum E {
     private final String d;
     E(String d) {
         this.d = d;
-    }  
+    }
 }
 ```
 
@@ -316,7 +316,7 @@ public enum E {
 
 functional interface; A functional interface is any interface that contains only one abstract method. may contain one or more default methods or static methods.
 
-Lambda Expressions; 按我理解 Lambda Expressions 本质上就是 Anonymous Classes. 在 java 编译器遇到 lambda 时, 其会首先确定该 lambda expression 的 target type, 然后据此生成相应的 anonymous class. 当 java 编译器无法根据 lambda expression 所处上下文以及处境确定 target type 时, lambda expression 本身是没有意义, 编译就会失败, 这就限制了 lambda expression 只能在某些场合下使用. target type 最终形态是一个 functional interface, 编译器会根据 target type 中那个唯一的 abstract method 信息来填补 lambda expression 缺失的信息, 比如 lambda expression 中是可以省略参数类型的呦. 
+Lambda Expressions; 按我理解 Lambda Expressions 本质上就是 Anonymous Classes. 在 java 编译器遇到 lambda 时, 其会首先确定该 lambda expression 的 target type, 然后据此生成相应的 anonymous class. 当 java 编译器无法根据 lambda expression 所处上下文以及处境确定 target type 时, lambda expression 本身是没有意义, 编译就会失败, 这就限制了 lambda expression 只能在某些场合下使用. target type 最终形态是一个 functional interface, 编译器会根据 target type 中那个唯一的 abstract method 信息来填补 lambda expression 缺失的信息, 比如 lambda expression 中是可以省略参数类型的呦.
 
 target type 与函数重载, 参见原文 'Target Types and Method Arguments' 举得例子. 个人觉得这种 case 还是尽量不要在代码中遇到, 如果遇到, 最好结合 java spec 文档准确地确定最终 target type, 绝不能想当然, 不然就会留坑.
 
@@ -327,7 +327,7 @@ public class Test {
 
     static void main(String[] args) {
         String a = "blog.hidva.com";
-        {   
+        {
             // 错误: 已在方法 main(String[])中定义了变量 a!!!
             int a = 33;
         }
@@ -355,29 +355,29 @@ public class Test {
 }
 ```
 
-Method References; 按我理解, Method References 本质上就是各种略写之后的 lambda expression, 就像 lambda expression 是各种略写之后的 anonymous class. 参见原文了解 method reference 的 4 种写法, 以及每种写法下, 编译器是如何补全信息得到最终 lambda expression 的. 
+Method References; 按我理解, Method References 本质上就是各种略写之后的 lambda expression, 就像 lambda expression 是各种略写之后的 anonymous class. 参见原文了解 method reference 的 4 种写法, 以及每种写法下, 编译器是如何补全信息得到最终 lambda expression 的.
 
 # Interfaces and Inheritance
 
 Defining an Interface; interface 语义大概我是了解的, 但一些语法方面确实不太晓得了, 参见原文学习.
 
-interface Default Methods; 和 abstract method 唯一的区别就是其有个默认实现, 主要用在 interface 新增接口然后又需要保持兼容性这种场景中. 当 extend an interface that contains a default method 时, 可以变更 default method 的语义, 有继续 default, 不改动实现; 继续 default, 变更一下实现; 不再 default, 变为 abstract. 
+interface Default Methods; 和 abstract method 唯一的区别就是其有个默认实现, 主要用在 interface 新增接口然后又需要保持兼容性这种场景中. 当 extend an interface that contains a default method 时, 可以变更 default method 的语义, 有继续 default, 不改动实现; 继续 default, 变更一下实现; 不再 default, 变为 abstract.
 
 interface static method; 就和普通的 java static method, 一般作为一个工具类.
 
-由于类可以实现多个 interface, 那么就存在 the supertypes of a class or interface provide multiple default methods with the same signature 这种情况, 此时相关名字解析规则参考原文, 我个人认为这种情况应该从语法上就禁止掉. 同样由于这种情况的存在, 就需要引入 qualified super, 与 qualified this 一样, 语法是 `Class.super`, 具体疗效参考原文. 
+由于类可以实现多个 interface, 那么就存在 the supertypes of a class or interface provide multiple default methods with the same signature 这种情况, 此时相关名字解析规则参考原文, 我个人认为这种情况应该从语法上就禁止掉. 同样由于这种情况的存在, 就需要引入 qualified super, 与 qualified this 一样, 语法是 `Class.super`, 具体疗效参考原文.
 
-Abstract Methods and Classes; 有点印象, 相关定义参考原文吧. abstract class 并不需要实现所有的其实现的 interfaces 中指定的接口, 毕竟它都 abstract 了嘛. 
+Abstract Methods and Classes; 有点印象, 相关定义参考原文吧. abstract class 并不需要实现所有的其实现的 interfaces 中指定的接口, 毕竟它都 abstract 了嘛.
 
 # Annotations
 
-Annotations, a form of metadata, provide data about a program that is not part of the program itself. Annotations have no direct effect on the operation of the code they annotate. 即 annotation 本身只会负责提供元信息, 其本身没有影响程序执行的能力; 需要与其他系统, 如 java 编译器, java Checker Framework 等结合使用才可能可以影响程序的执行. 
+Annotations, a form of metadata, provide data about a program that is not part of the program itself. Annotations have no direct effect on the operation of the code they annotate. 即 annotation 本身只会负责提供元信息, 其本身没有影响程序执行的能力; 需要与其他系统, 如 java 编译器, java Checker Framework 等结合使用才可能可以影响程序的执行.
 
 Declaring an Annotation Type; Annotation 定义语法参见原文即可. 至于这里 Annotation 中的 element 为什么要以函数的形式声明的原因见下.
 
 Use an Annotation; Annotation 使用语法: `@AnnotationType(ElementAssign...)`, 这里 ElementAssign 形式为 `ElementName=ElementValue`, 其中 ElementName 由 annotation type 定义时指定; If there is just one element named value, then the name can be omitted. 如果 ElementName 是数组类型, 则 ElementValue 可以为单个值表明长度为 1 的数组. Annotation 通常都是位于单独的一行, 但也不是不可以与它们所注解的 java element 位于同一行.
 
-meta-annotations; Annotations that apply to other annotations are called meta-annotations. 参见原文了解有存在哪些 meta annotations. 
+meta-annotations; Annotations that apply to other annotations are called meta-annotations. 参见原文了解有存在哪些 meta annotations.
 
 Repeating Annotations; Repeating Annotations 使用场景参见原文的 `@Schedule` 例子, 还是很有市场的. How To Declare a Repeatable Annotation Type, 参见原文了解; ~~这里 container annotation 居然需要我们来手动定义, 我还以为编译器自动生成的呢~~. 至于这里为何要引入 container annotation, 主要是还是为了兼容 java 反射系统的 API, 如 `AnnotatedElement.getAnnotation(Class<T>)` 等; ~~本来我以为是为了在不变更 jvm spec 前提下实现 Repeating Annotations 呢~~. 同样参考原文简单了解如何通过 java 反射系统来获取 java element 的 Retrieving Annotations.
 
@@ -385,12 +385,12 @@ type annotation; Annotations can also be applied to any type use. This means tha
 
 ## Annotations 究竟是什么?
 
-Annotations 本质上就是一个 interface, 所有 Annotations 都 extends java.lang.annotation.Annotation 这个 interface, 所以 Annotation declare 语法使用了 interface 关键词. 按我理解在 use an annotation 时, 编译器会自动生成一个类, 该类实现了指定的 annotation interface, 见下 `A_Use_1`; 之后编译器会实例化该类并将实例存放于某处, 后续通过 java 反射系统 API 如 `getDeclaredAnnotations()` 时, 将会返回这些实例. 
+Annotations 本质上就是一个 interface, 所有 Annotations 都 extends java.lang.annotation.Annotation 这个 interface, 所以 Annotation declare 语法使用了 interface 关键词. 按我理解在 use an annotation 时, 编译器会自动生成一个类, 该类实现了指定的 annotation interface, 见下 `A_Use_1`; 之后编译器会实例化该类并将实例存放于某处, 后续通过 java 反射系统 API 如 `getDeclaredAnnotations()` 时, 将会返回这些实例.
 
 ```java
 @interface A {
     String a() default "blog.hidva.com";
-    String[] b(); 
+    String[] b();
 }
 
 @A(b="hidva.com")  // #1
@@ -406,24 +406,24 @@ class A_Use_1 implements A {
     @Override
     String[] b() {
         return {"hidva.com"};
-    }   
+    }
 }
 ```
 
 这大概也是为何 annotation type element declarations 以 Method 的形式存在的原因吧.
 
 
-# Generics 
+# Generics
 
 老规矩, 先介绍一波基本概念:
 
-generic type; A generic type is a generic class or interface that is parameterized over types. 
+generic type; A generic type is a generic class or interface that is parameterized over types.
 
-type parameters, type argument. 
+type parameters, type argument.
 
 generic type invocation, parameterized type; `GenericClass<T>` 一方面是一个动作, 即 generic type invocation; 另一方面也是一个名词, 即 parameterized type.
 
-raw type; A raw type is the name of a generic class or interface without any type arguments. 由于 type erasure 的存在, 对于 generic type 来说, 其 raw type 是运行时唯一存在的一个类, 其他 parameterized type 都仅在编译期存在. 
+raw type; A raw type is the name of a generic class or interface without any type arguments. 由于 type erasure 的存在, 对于 generic type 来说, 其 raw type 是运行时唯一存在的一个类, 其他 parameterized type 都仅在编译期存在.
 
 reifiable type, Non-reifiable types; 若 type 蕴含的信息在编译期, 运行期完全一致, 那么 type 就是 reifiable type; 反之则是 non-reifiable type. 如 `List<?>` 编译期, 运行时都一个德行, 所以它就是 reifiable type; 但是 `List<? extends Number>` 由于运行时经过 type erasure 丢失了 'extends Number' 这个信息, 所以它就 non-reifiable type.
 
@@ -437,7 +437,7 @@ Generic methods; 参见原文了解 generic method 的声明语法, 使用姿势
 
 ```java
 public class Test {
-    
+
     public static <T> void f(T t) {
         System.out.println(t.getClass());
     }
@@ -482,9 +482,9 @@ public class MyNode extends Node<Integer> {
 
 // 代码片段1
 MyNode mn = new MyNode(5);
-Node n = mn;           
-n.setData("Hello");  // #1   
-Integer x = mn.data;  // #2    
+Node n = mn;
+n.setData("Hello");  // #1
+Integer x = mn.data;  // #2
 ```
 
 设想一下如果 type erasure 过程不存在第三件事, 那么 type erasure 之后, MyNode 中将存在 `setData(Object)`, `setData(Integer)`, 并且 `#1` 将会调用 `setData(Object)`, 很显然会成功调用; 然后在执行 `#2` 时, 则也会理所当然地抛出 ClassCastException; 最主要的是这种行为不符合 java rd 们的直观预期, 明明 Override 的了啊! 如果 type erasure 过程有第三件事, 那么编译器将为 MyNode 生成如下方法:
@@ -493,7 +493,7 @@ Integer x = mn.data;  // #2
 public void setData(Object data) {
     setData((Integer) data);
 }
-``` 
+```
 
 所以 ClassCastException 就会提前在 `#1` 时抛出, 而且一切行为都符合 java rd 们的预期.
 
@@ -505,7 +505,7 @@ public void setData(Object data) {
 
 老规矩, 先介绍一波基本概念:
 
-package; A package is a grouping of related types providing access protection and name space management. 
+package; A package is a grouping of related types providing access protection and name space management.
 
 再来看一些琐碎的细节:
 
@@ -534,7 +534,7 @@ package 是 plat 结构, 没有任何层次性; 虽然 package name 看起来是
 
 java exceptions 体系与 C++ 的很是相似, 只不过 java 定下了很多约定使得其异常体系看上去规范了许多, 比如 java 将 exception 分为三类, 而且还制定了 Catch or Specify Requirement 等. 这里仍只是琐碎地介绍 java 特有的一些点:
 
-异常分类; java 中异常首先被分为两类: checked exception, unchecked exceptions; unchecked exceptions 又根据 exception 是否是由 java application 本身触发的又分为了两类: error, runtime exception; 
+异常分类; java 中异常首先被分为两类: checked exception, unchecked exceptions; unchecked exceptions 又根据 exception 是否是由 java application 本身触发的又分为了两类: error, runtime exception;
 
 error are exceptional conditions that are external to the application, 参见原文举得 IOError 例子. Errors are those exceptions indicated by Error and its subclasses. java 期待对 error 的处理方式是: An application might choose to catch this exception, in order to notify the user of the problem — but it also might make sense for the program to print a stack trace and exit.
 
@@ -544,9 +544,9 @@ checked exception are exceptional conditions that a well-written application sho
 
 Catching More Than One Type of Exception with One Exception Handler; 参见原文了解其语义, 语法. 这里按我理解, 以原文例子为例, 此时 `ex` 类型是不确定的; 当 catch block 捕捉了 more than one type of exception 时, 其对应的处理逻辑就不应该再依赖于 ex 的具体类型了, 此时 catch block 关注的是抛出了这些异常, 而不是具体抛出了什么样的异常; ~~打禅机真令人舒适~~.
 
-The finally Block; ~~这里感觉关键词 `final`, `finally` 可以互相复用嘛, 还能省掉一个关键词了.~~ 再说 finally block 之前, 先看下 statement 概念, 就像上面定义的: A statement forms a complete unit of execution. 按我理解, 整个 try-catch-finally block 是一条 statement, finally block 会在执行流将要跳出当前 try-catch-finally statement 开始执行下一条 statement 之间执行; 执行流将要跳出当前 statement 的原因有很多: 比如执行了 try block 中的 return statement, 或者在执行 try block, catch block 时抛出了异常, 或者 try block, catch block 中不存在下一条 statement 了等等; 整个 try-catch-finally statement 执行起来大概是这样的: 
+The finally Block; ~~这里感觉关键词 `final`, `finally` 可以互相复用嘛, 还能省掉一个关键词了.~~ 再说 finally block 之前, 先看下 statement 概念, 就像上面定义的: A statement forms a complete unit of execution. 按我理解, 整个 try-catch-finally block 是一条 statement, finally block 会在执行流将要跳出当前 try-catch-finally statement 开始执行下一条 statement 之间执行; 执行流将要跳出当前 statement 的原因有很多: 比如执行了 try block 中的 return statement, 或者在执行 try block, catch block 时抛出了异常, 或者 try block, catch block 中不存在下一条 statement 了等等; 整个 try-catch-finally statement 执行起来大概是这样的:
 
-1.    首先执行 try block, 然后根据需要执行相应的 catch block, 这其中发生了会导致执行流跳出 try-catch-finally statement 的原因 A; 
+1.    首先执行 try block, 然后根据需要执行相应的 catch block, 这其中发生了会导致执行流跳出 try-catch-finally statement 的原因 A;
 2.    开始执行 finally block, 在 finally block 中可以通过 return statement, 再抛出一个异常生成一个新的跳出 try-catch-finally statement 的原因 B, B 会覆盖 A.
 3.    执行流退出 try-catch-finally statement, 并根据最终退出原因(A 或者 B)决定下一步流向.
 
@@ -570,7 +570,7 @@ finally block ...
 1.    根据源码顺序从左到右, 从上到下依次初始化 resources; 若所有 resource 都成功初始化, 则继续; 否则调到第 3 步.
 2.    执行 try block; 当执行流将要退出 try block 时; 这里可能是正常退出, 也可能是异常退出; 若异常退出, 则将异常对象设置为 currentExceptionObj.
 3.    逆序 close 每一个成功初始化的 resource. 即按照 resource 初始化顺序的逆序. 这里如果 close 时抛出了异常 closeExceptionObj, 此时若存在当前异常对象 currentExceptionObj, 则执行 `currentExceptionObj.addSuppressed(closeExceptionObj)`, 然后继续下个 resource 的 close; 若不存在当前异常对象, 则执行 `currentExceptionObj = closeExceptionObj`, 然后继续下个 resource 的 close 流程.
-4.    按照 try-catch-finally statement 的语义开始执行 catch block, finally block. 
+4.    按照 try-catch-finally statement 的语义开始执行 catch block, finally block.
 
 # Concurrency
 
@@ -594,7 +594,7 @@ Object.notify, Object.notifyAll, Object.wait 语义; `Object.wait()` 必须在�
 
 # The Platform Environment
 
-platform environment; An application runs in a platform environment, defined by the underlying operating system, the Java virtual machine, the class libraries, and various configuration data supplied when the application is launched. 
+platform environment; An application runs in a platform environment, defined by the underlying operating system, the Java virtual machine, the class libraries, and various configuration data supplied when the application is launched.
 
 Properties are configuration values managed as key/value pairs.
 
