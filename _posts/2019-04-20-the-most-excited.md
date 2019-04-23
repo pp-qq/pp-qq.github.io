@@ -54,6 +54,9 @@ private static LinkedList<Expr> splitOR(Expr root) {
 
 此番操作直接将 DTS 发来的 DELETE 语句执行时间从 138s 提升到 40ms 左右.
 
+![]({{site.url}}/assets/deleteor64noop.png)
+![]({{site.url}}/assets/deleteor64op.jpg)
+
 ## Hadoop ChecksumFileSystem 天秀的 setPermission 姿势
 
 Hadoop ChecksumFileSystem::setPermission, 经过一堆调用链之后最终会通过启动个 chmod 进程来为新建文件设置权限. 这直接导致我们线上 CPU 利用率飙满. 具体来说, 就是我们的[分布式 OLAP 产品 ADB](https://help.aliyun.com/product/92664.html)采用了存储计算分离架构, 其数据是放在阿里自研的分布式文件系统盘古上. ADB 中通过 org.apache.hadoop.fs SDK 来访问存储于盘古上的数据. 具体来说, ADB 将会通过 org.apache.hadoop.fs.FileSystem#copyToLocalFile() 来下载文件到本地, 然后 hadoop fs 将使用 org.apache.hadoop.fs.LocalFileSystem 来访问位于本地磁盘上的文件数据. 然后 LocalFileSystem::create() 实现如下:
