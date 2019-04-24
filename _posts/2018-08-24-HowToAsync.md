@@ -71,6 +71,8 @@ void AsyncPubPipelet::StartConn() {
     return ;
     ```
 
+    这里有坑, 参见 [未能修复了的 core 遗憾]({{site.url}}/2019/04/20/the-most-excited/#%E6%9C%AA%E8%83%BD%E4%BF%AE%E5%A4%8D%E4%BA%86%E7%9A%84-core-%E9%81%97%E6%86%BE).
+
 -   利用 facebook/wangle 提供的 Pipeline 机制来检测, 如:
 
     ```c++
