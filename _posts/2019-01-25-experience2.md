@@ -5,7 +5,7 @@ tags: [开发经验]
 
 ## MOCK 也是个好东西啊
 
-mock 是什么? 以及为什么需要 mock, 参见 [ForDummies](https://github.com/google/googletest/blob/master/googlemock/docs/ForDummies.md) 的解答: 
+mock 是什么? 以及为什么需要 mock, 参见 [ForDummies](https://github.com/google/googletest/blob/master/googlemock/docs/ForDummies.md) 的解答:
 >   When you write a prototype or test, often it's not feasible or wise to rely on real objects entirely. A mock object implements the same interface as a real object (so it can be used as one), but lets you specify at run time how it will be used and what it should do (which methods will be called? in which order? how many times? with what arguments? what will they return? etc).
 
 mock object 与 fake object 这两个概念的区别是什么. Fake objects have working implementations, but usually take some shortcut (perhaps to make the operations less expensive), which makes them not suitable for production. An in-memory file system would be an example of a fake. Mocks are objects pre-programmed with expectations, which form a specification of the calls they are expected to receive. Mock allows you to check the interaction between itself and code that uses it.
@@ -15,13 +15,13 @@ mock 不应该改变接口的行为. 尤其是在 java 中使用 Mockito 时, �
 
 ## Prometheus 真是个好东西
 
-首先介绍一下 Prometheus 中的一些基本概念. 
+首先介绍一下 Prometheus 中的一些基本概念.
 
 metric, The metric name specifies the general feature of a system that is measured. 比如对于 http server 来说 当前已收到请求总数 http_request_total 就是一个 metric.
 
 labels; 按我理解 labels 是 metric 的属性(或者称为维度), 以 http_request_total 为例, 它可以具有 http_method, http_path 等维度. any given combination of labels for the same metric name identifies a particular dimensional instantiation of that metric. 在使用 prometheus client library 更新某个带有 labels 的 metrics 时, 需要指定所有的 label 取值, 不然 client library 会报错的. While labels are very powerful, avoid overly granular metric labels. The combinatorial explosion of breaking out a metric in many dimensions can produce huge numbers of timeseries, which will then take longer and more resources to process. As a rule of thumb aim to keep the cardinality of metrics below ten, and limit where the cardinality exceeds that value. 按我理解是说一个 metric 对应的 time series 数目不宜过多, 比如不应该超过 10 个. ~~本来我以为这句话是说 metric 的 label 不宜过多.~~.
 
-time series, Prometheus fundamentally stores all data as time series: streams of timestamped values belonging to the same metric and the same set of labeled dimensions. 所以 Every time series is uniquely identified by its metric name and a set of key-value pairs. 在 prometheus 中, 通过 `<metric name>{<label name>=<label value>, ...}` 来作为 time series notation. 如 `http_request_total{method="POST", handler="/messages"}`. 
+time series, Prometheus fundamentally stores all data as time series: streams of timestamped values belonging to the same metric and the same set of labeled dimensions. 所以 Every time series is uniquely identified by its metric name and a set of key-value pairs. 在 prometheus 中, 通过 `<metric name>{<label name>=<label value>, ...}` 来作为 time series notation. 如 `http_request_total{method="POST", handler="/messages"}`.
 
 Samples; Samples form the actual time series data. Each sample consists of: a float64 value, a millisecond-precision timestamp.
 
@@ -37,7 +37,7 @@ metric types; These are currently only differentiated in the client libraries (t
 
 再看 prometheus 提供的 query language PromQL 之前, 先看下 prometheus 提供的两个 query api: [Instant queries](https://prometheus.io/docs/prometheus/latest/querying/api/#instant-queries), [Range queries](https://prometheus.io/docs/prometheus/latest/querying/api/#range-queries). 其中 instant queries api 中 query 参数可传递任何合法 PromQL, api 会返回 PromQL 执行结果. range queries api 中的 query 参数可传递任何类型为 Scalar 或者 instant Vector 的 PromQL, 按我理解 range queries api 大致执行流程就是在时间范围 [start, end] 内每 step 秒执行一次 query, 收集返回的 instance vector/scalar, 之后返回所有收集结果.
 
-关于 PromQL 学习, 可以直接参考 prometheus 官方文档 [querying prometheus](https://prometheus.io/docs/prometheus/latest/querying/basics/). 这里通过例子来介绍一些拗口的情况. 
+关于 PromQL 学习, 可以直接参考 prometheus 官方文档 [querying prometheus](https://prometheus.io/docs/prometheus/latest/querying/basics/). 这里通过例子来介绍一些拗口的情况.
 
 `group_left`, `group_right`; 分别表明了 left, right 操作数作为 one-to-many 中 many 角色. 如 `A / group_left B`, 表明对于 B 中一个 entry 来说, A 中存在多个 entry 与之 match, 这里 match 规则既是 One-to-one vector matches 中采用的规则. 同样 `A / group_right B`, 则表明对于 A 中一项 $$a_i$$, B 中可能存在多项 $$b_{i_0}$$, $$b_{i_1}$$, ..., $$b_{i_n}$$ 与之 match; 此时 $$\frac{a_i}{b_{i_0}}$$, $$\frac{a_i}{b_{i_1}}$$, ..., $$\frac{a_i}{b_{i_n}}$$ 组成了 `A / group_right B` 的运算结果项, 也就是 $$a_i$$ 会多次参与运算.
 
