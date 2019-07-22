@@ -87,10 +87,6 @@ featured-condition-size: 1              # A tag will be featured if the size of 
 # Friends
 friends: [
     {
-        title: "不要点",
-        href: "https://www.taobao.com/"
-    },
-    {
         title: "Go!Go!Go!",
         href: "https://go.hidva.com/"
     },
