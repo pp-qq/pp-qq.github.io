@@ -3,6 +3,40 @@ title: 开发经验
 tags: [开发经验]
 ---
 
+## bash 中的引号
+
+bash 中的引用使用, 尤其是在嵌套场景下的使用一直困扰着我许久. 所以找了个时间深入了 bash document, bash 源码之后总结出如下规律. 另外这个 Python 小代码会在我们探索这些规律时起到很大的作用:
+
+```python
+# pargv.py
+import sys
+for arg in sys.argv:
+    print arg  # 忠实地输出每一个被 bash 处理后的字符串.
+```
+
+bash 在字符串中遇到的第一个引号符号决定着 bash 对字符串的解析使用. 若第一个引号符号是
+
+-   单引号, 则此时 bash 会把接下来所有字符都视为普通字符, 直至遇到下一个引号. bash 单引号是无法嵌套的,因为bash的line扫描算法遇到下一个单引号就会和上一个直接配对,没有贪婪扫描的说法。
+-   双引号, 则此时 bash 在扫描字符串的同时会对字符串进行解析, 执行, 替换. 直至遇到下一个未被转义的双引号. 所以:
+
+    ```bash
+    # 就算这时 `$HELLO` 位于单引号内, 但由于字符串第一个引号符号是双引号, 所以总会解析.
+    $ python pargv.py "hello: '$HELLO'"
+    pargv.py
+    hello: 'blog.hidva.com'
+    ```
+-   `$'`; The word expands to string, with backslash-escaped characters replaced as specified  by  the  ANSI C standard. The expanded result is single-quoted, as if the dollar sign had not been present.
+
+至此, 可以试着使用如上规律来解释下面出现在 python 代码中的 bash 字符串==
+
+```python
+SETCMDTEMP = 'ssh %s $\'su -l gp%s -c $\\\'GDDPID=`ps -u gp%s -o pid,cmd | grep -F "global deadlock" | grep -vF grep | awk \\\\\\\'{print $1}\\\\\\\'`; ps -o lstart,pid,cmd $GDDPID; kill -SIGTERM $GDDPID\\\'\''
+```
+
+## 使用 ssh 远程执行命令
+
+ssh manual 手册可是明说了: If command is specified, it is executed on the remote host instead of a login shell. 也即此时 ssh 并不会创建一个 login shell 来执行 command, 因此像 `~/.bashrc`, `~/.bash_profile` 中的用户级别环境初始化操作也都不会执行了. 就是这个导致我纠缠在为啥我的 gpinitsytem 一直失败半天之久.
+  
 ## Shared Everything, Shared Nothing 究竟是什么
 
 Shared *; 是指分布式系统中实例之间共享资源的情况, 从而也说明了实例之间可能会存在的资源争抢程度, 这里的资源一般是指 CPU, IO, 内存等. shared nothing 表明该系统中实例之间未共享任何资源, 比如当实例部署在不同的节点上时. shared everything 表明实例之间共享了一切资源, 比如当实例部署在同一节点并且未在任何隔离时. 还有一种情况是 shared disk, 是指实例之间使用自己的私有 CPU 和 Memory, 共享存储系统, 现在火热的存储计算分离就是这种情况.

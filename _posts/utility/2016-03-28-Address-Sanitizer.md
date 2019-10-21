@@ -6,7 +6,7 @@ tags: [gcc]
 
 ## Address Sanitizer 是什么
 
-*   Address Sanitizer;地址消毒剂,是一种检测内存读取是否合法的一种机制.其会在应用访问无效内存时
+*   Address Sanitizer;是一种检测内存读取是否合法的一种机制.其会在应用访问无效内存时
     给出错误信息.
 
 ## Address Sanitizer 实现机理
@@ -21,8 +21,6 @@ tags: [gcc]
 按我理解, Asan 同时也有一些 hook 机制, 比如可能 hook 了 malloc, free 等内存分配函数. 本来我以为 asan 无法跨越 so 边界来着, 即如果 1.so 编译时未指定 asan, 主程序 main 链接了 1.so, 并且开启了 asan; 按我理解当 main 中访问 1.so 内分配的内存时, asan 应该会报错来着, 毕竟在 main asan 视角中, main 访问的内存未被分配过. 但实测发现 asan 能覆盖这种情况.
 
 ## 如何使用 Address Sanitizer
-
-### gcc
 
 *   使用`-fsanitize=address`来开启 Address Sanitizer.如:
 
@@ -47,6 +45,6 @@ tags: [gcc]
     ==18324==ERROR: AddressSanitizer: stack-buffer-overflow on address... 此处省略若干字...
     ```
 
-
+Address sanitizer 的行为可以受一些环境变量控制, 具体参见 [google/sanitizers](https://github.com/google/sanitizers). 在实际使用中, 可能会经常性使用某些设置, 如: `export LSAN_OPTIONS=leak_check_at_exit=false` 等. 
 
 **转载请注明出处!谢谢**
