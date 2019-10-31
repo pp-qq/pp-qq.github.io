@@ -45,6 +45,6 @@ tags: [gcc]
     ==18324==ERROR: AddressSanitizer: stack-buffer-overflow on address... 此处省略若干字...
     ```
 
-Address sanitizer 的行为可以受一些环境变量控制, 具体参见 [google/sanitizers](https://github.com/google/sanitizers). 在实际使用中, 可能会经常性使用某些设置, 如: `export LSAN_OPTIONS=leak_check_at_exit=false` 等. 
+Address sanitizer 的行为可以受一些环境变量控制, 具体参见 [google/sanitizers](https://github.com/google/sanitizers). 在实际使用中, 可能会经常性使用某些设置, 如: `export LSAN_OPTIONS=leak_check_at_exit=false`, `export ASAN_OPTIONS="disable_coredump=0:unmap_shadow_on_exit=1:abort_on_error=1"`(To generate a core dump when ASAN detects some error.) 等. 
 
 **转载请注明出处!谢谢**
