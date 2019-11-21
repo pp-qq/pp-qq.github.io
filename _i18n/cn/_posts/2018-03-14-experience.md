@@ -3,7 +3,7 @@ title: 开发经验
 tags: [开发经验]
 ---
 
-## Use GDB in production is risky
+## 线上环境使用 GDB 有风险
 
 The GDB use [ptrace](http://man7.org/linux/man-pages/man2/ptrace.2.html) system call to implement breakpoint, when we use 'b' command to create a breakpoint in GDB, GDB will calculate the address of instruction at which the process(attached by gdb) should stop according to debug information stored in process, then call ptrace(PTRACE_PEEKTEXT) to get the instruction content at this address, and call ptrace(PTRACE_POKEDATA) to change the instruction content at this address to 'int3'(0xCC):
 

@@ -140,7 +140,7 @@ public void setPermission(Path p, FsPermission permission
 
 jstack 可以看到线程堆栈为:
 
-![]({{site.url}}/assets/hadoopfsstack.jpg})
+![]({{site.url}}/assets/hadoopfsstack.jpg)
 
 在修复之后, 在同样的场景下, cpu 利用率如下图:
 

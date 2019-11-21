@@ -35,10 +35,12 @@ anchorjs: true                          # if you want to customize anchor. check
 
 # Gems
 # from PR#40, to support local preview for Jekyll 3.0
-plugins: [jekyll-paginate, jekyll-mermaid]
+plugins: [jekyll-paginate, jekyll-mermaid, jekyll-multiple-languages-plugin]
 
 mermaid:
   src: '/js/mermaid/current/mermaid.min.js'
+
+languages: ['cn', 'en']
 
 
 # Markdown settings
