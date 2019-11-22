@@ -1,7 +1,7 @@
 ---
 title: "谁动了我的 Schema?"
 hidden: false
-tags: [开发经验]
+tags: ["Postgresql/Greenplum"]
 ---
 
 在一次常规的[ADB PG](https://www.aliyun.com/product/gpdb)实例备份巡检中, 发现了一个实例备份失败, 而且报错原因很是奇怪: `schema with OID 34196 does not exist`. 查看代码得知该报错是指: 在 pg_namespace 中找不到 pg_class 中某个 relation 对应的 schema. 这不可能啊! 毕竟在 schema 内仍存在对象时我们是无法删除 schema 的啊:
