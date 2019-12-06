@@ -2,12 +2,14 @@ encoding: UTF-8
 
 # Site settings
 title:  学习让我快乐
-SEOTitle: 学习让我快乐 
+SEOTitle: 学习让我快乐
 # header-img: img/home-bg.jpg
 email: w@hidva.com
 # description: "没有描述"
 # keyword: ""
 url: "https://blog.hidva.com"              # your host, for absolute URL
+# Copyright © 1995-${CurrentYear} ${copyrightto} 版权所有
+copyrightto: "Hidva.com"
 # baseurl: "/huxblog-boilerplate"         # for example, '/blog' if your blog hosted on 'host/blog'
 
 
