@@ -99,5 +99,8 @@ while (true)
                                         INVALID_PGPROCNO))
         break;
 }
-
 ```
+
+(这里可以多想想 '#A' 与 '#A', '#A' 与 '#B' 交织在一起运行的场景来加深理解.
+
+等等, 这里 PG 的 pg_atomic_read_u32() 未加 read memory barrier, 会不会真的有可见性问题呢~~~?
