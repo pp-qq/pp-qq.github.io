@@ -93,7 +93,7 @@ PGSemaphoreUnlock(PGSemaphore sema)
 }
 ```
 
-想到了一种可能性 semop() 系统调用失败了! 但是由于测试实例日志并未被全量保存, 而且实例日志刷掉太猛, 确实没找到任何 semop 失败的日志. 所以只能假设如果是 semop 失败了会怎么样: 这时 PGSemaphoreUnlock 所在的 backend 会 FATAL 退出, 不会触发 Postmaster 进入 recovery mode. 另外一方面由于 semop 失败导致 LWLockAcquire backend 未被唤醒会导致 LWLock::releaseOk 继续保持为 false, 嗯上面的 GDB 也显示了此时该值确实仍为 false. 那就这样吧: root cause 就认定为由于 semop 失败导致的==!
+想到了一种可能性 semop() 系统调用失败了! 但是由于测试实例日志并未被全量保存, 而且实例日志刷掉太猛, 确实没找到任何 semop 失败的日志. 所以只能假设如果是 semop 失败了会怎么样: 这时 PGSemaphoreUnlock 所在的 backend 会 FATAL 退出, 不会触发 Postmaster 进入 recovery mode. 另外一方面由于 semop 失败导致 LWLockAcquire backend 未被唤醒会导致 LWLock::releaseOk 继续保持为 false, 嗯上面的 GDB 也显示了此时该值确实仍为 false. 那就这样吧: root cause 就认定为由于 semop 失败导致的==! (所以我觉得 PGSemaphoreUnlock() 中 FATAL 应该改为 PANIC 的! 像这里 case, 由于 releaseOk 为 false 导致 LWLockRelease() 时不会执行任何唤醒操作, 会导致越来越多的 backend 永久阻塞在 LWLockAcquire() 中. 仍是我们这个 case, 除了 DELETE 之外, 看了下还有几个 SELECT 也是同样的情况!
 
 那么如果遇到这种情况该怎么恢复呢? 只需要在编写一个小 demo 手动调用相应 semop() 操作唤醒即可, 毕竟 sysv semaphore 是系统级资源, 我们并不需要一定处于 PG 环境下才能操作.
 
