@@ -77,7 +77,7 @@ class C1 {
 };
 ```
 
-我现在开始对这个文件很好奇了! 在 QtCreator 中, TranslationUnit 类表明着一个待解析的源文件, 其内成员 `[_firstSourceChar, _lastSourceChar)` 存放着文件内容. 所以接下来只需要调到 'frame #15716', 然后找到当时的 this 指针就行, 祈祷保佑存放着这个 this 指针内容的寄存器已经被压入函数栈帧中了. 根据调用约定, this 参数作为函数的第一个参数应该会通过 rdi 寄存器传递给 parse(), 结合 parse() 的反汇编:
+我现在开始对这个文件很好奇了! 在 QtCreator 中, TranslationUnit 类表明着一个待解析的源文件, 其内成员 `[_firstSourceChar, _lastSourceChar)` 存放着文件内容. 所以接下来只需要调到 'frame #15716', 然后找到当时的 this 指针就行, 祈祷保佑存放着这个 this 指针内容的寄存器已经被压入函数栈帧中了. 根据[调用约定]({{site.url}}/2019/12/09/behindcall/), this 参数作为函数的第一个参数应该会通过 rdi 寄存器传递给 parse(), 结合 parse() 的反汇编:
 
 ```
 (lldb) disassemble
