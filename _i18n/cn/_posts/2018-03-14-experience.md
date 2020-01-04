@@ -3,6 +3,67 @@ title: 开发经验
 tags: [开发经验]
 ---
 
+## GCC 中的 _Decimal64, _Decimal128
+
+根据 GCC MANUAL, GCC 支持 _Decimal64, _Decimal128 类型, 分别实现了 IEEE 754-2008 标准中定义的 decimal float point format, 在 encoding 选择上, _Decimal64/128 即可能采用了 DPD (Densely Packed Decimal), 也可能是 BID (Binary Integer Decimal), 这是根据 GCC 构建时的 configuration 来选择的, 默认情况下实测是 BID. 一个检测方法是编译如下 demo:
+
+```c
+int main() {
+	_Decimal64 left = 3.6dd;
+	_Decimal64 right = 3.7dd;
+	left = left + right;
+	return 0;
+}
+```
+
+然后观察其中使用的符号:
+
+```
+(gdb) disassemble main 
+Dump of assembler code for function main:
+   0x0000000000400587 <+0>:	push   rbp
+   0x0000000000400588 <+1>:	mov    rbp,rsp
+   0x000000000040058b <+4>:	sub    rsp,0x10
+   0x000000000040058f <+8>:	movabs rax,0x31a0000000000024
+   0x0000000000400599 <+18>:	mov    QWORD PTR [rbp-0x8],rax
+   0x000000000040059d <+22>:	movabs rax,0x31a0000000000025
+   0x00000000004005a7 <+32>:	mov    QWORD PTR [rbp-0x10],rax
+   0x00000000004005ab <+36>:	movq   xmm1,QWORD PTR [rbp-0x10]
+   0x00000000004005b0 <+41>:	movq   xmm0,QWORD PTR [rbp-0x8]
+   0x00000000004005b5 <+46>:	call   0x4005d0 <__bid_adddd3>
+   0x00000000004005ba <+51>:	movq   rax,xmm0
+   0x00000000004005bf <+56>:	mov    QWORD PTR [rbp-0x8],rax
+   0x00000000004005c3 <+60>:	mov    eax,0x0
+   0x00000000004005c8 <+65>:	leave  
+   0x00000000004005c9 <+66>:	ret    
+End of assembler dump.
+```
+
+其中 '__bid_adddd3' 表明当前 GCC 使用的是 BID encoding.
+
+其中 '__bid_adddd3' 这些符号来源于 GCC libgcc.a 这个库, 这个库通过 [libbid](https://github.com/gcc-mirror/gcc/tree/master/libgcc/config/libbid) 实现了这些符号, 我目测 libbid 这个库代码就是来自 [intel math library](https://software.intel.com/en-us/articles/intel-decimal-floating-point-math-library) 吧...
+
+## bit-order
+
+理论上不存在 bit order 概念的, 毕竟我们无法做到 bit 级别寻址, 即 bit order 无论是什么对上层应用都是不可见的. 但刚发现 INTEL 中居然存在 BT 这种指令, 给了我们探究一个字节内 bit 是如何排放的秘密. 总之这里直接说下结论: bit order 也是按照小端序存放的, 以数字 "170" 为例, 其二进制形式为 "0b10101010", 其在内存中位置从低位到高位依次是: 0, 1, 0, 1, 0, 1, 0, 1.
+
+那么寄存器中是如何规定高低的呢? INTEL MANUAL 中指定: 寄存器最右端为低位, 最左端为高位, 在寄存器中, bit order 仍是小端序的, 继续以 170 为例, `mov al, 170` 之后, al 寄存器从左到右内容依次是: 10101010.
+
+## 为啥 wireshark 识别不出 Postgresql 协议?
+
+主要是由于 wireshark 中负责 Postgresql 协议解析的 [dissectors](https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-pgsql.c) 在 proto_reg_handoff_pgsql() 中注册自身时使用了 `dissector_add_uint_with_preference("tcp.port", PGSQL_PORT /* 5432 */, pgsql_handle);`, 此时 TCP 协议对应的 dissectors 则仅会将 port 为 5432 的报文交给 Postgresql dissector 解析, 因此当我们抓包中 postgre server 端口不是 5432 时就会无法解析出 PGSQL 报文.
+
+此时我们可以使用 wireshark "Decode As" 功能来解决这个问题, 通过在 "~/.config/wireshark/decode_as_entries" 中显式指定某个特定 TCP 端口对应的是 PGSQL 协议来触发解析, decode_as_entries 文件内容示例为:
+
+```
+# "Decode As" entries file for Wireshark 3.0.7.
+#
+# This file is regenerated each time "Decode As" preferences
+# are saved within Wireshark. Making manual changes should be safe,
+# however.
+decode_as_entry: tcp.port,3032,(none),PGSQL
+```
+
 ## 线上环境使用 GDB 有风险
 
 The GDB use [ptrace](http://man7.org/linux/man-pages/man2/ptrace.2.html) system call to implement breakpoint, when we use 'b' command to create a breakpoint in GDB, GDB will calculate the address of instruction at which the process(attached by gdb) should stop according to debug information stored in process, then call ptrace(PTRACE_PEEKTEXT) to get the instruction content at this address, and call ptrace(PTRACE_POKEDATA) to change the instruction content at this address to 'int3'(0xCC):

@@ -9,7 +9,7 @@ tags: [开发经验]
 
 目前据我所知, 编译器在实现函数调用时都要遵循一个特定的 ABI 约定, 该 ABI 约定规定了参数是通过寄存器还是通过内存来传递? 函数返回值如何传递? 函数内部是否需要为调用者保存某些寄存器等. ~~如果我没有搜错的话,~~ GCC 遵循的 API 约定应该是 [X86 psABI](https://github.com/hjl-tools/x86-psABI/wiki/X86-psABI). 该文件使用的是 AT&T 风格的汇编语法, 参见 [Linux 汇编语言开发指南](https://www.ibm.com/developerworks/cn/linux/l-assembly/index.html) 来了解一二. 详见 "3.2 Function Calling Sequence" 节了解在函数调用上, GCC 遵循的约定,  如下列举出一些关键点:
 
--    The Stack Frame 组织. 对于一个函数来说, 其 frame 在栈中的位置为 `[0(%rsp), 16(%rbp))`. 其中 rsp, rbp 值是该函数视角下看到的取值.
+-    The Stack Frame 组织. 对于一个函数来说, 其 frame 在栈中的位置为 `[0(%rsp), 16(%rbp))`. 其中 rsp, rbp 值是该函数视角下看到的取值. 所以在函数调用前后, rsp, rbp 的值始终是不变的. 
 
 -   Parameter Passing; 该 ABI 约定首先按照一系列规则对参数进行了分类, 之后定义了每类参数在传递时应该符合的规范. 如最常见的整数以及指针类型, 将依次尝试使用 %rdi, %rsi, %rdx, %rcx, %r8 and %r9 寄存器来传递参数, 如果无可用寄存器, 那么会使用内存, 即通过栈来传递.
 
