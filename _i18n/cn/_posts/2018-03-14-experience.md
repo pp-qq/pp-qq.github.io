@@ -3,6 +3,20 @@ title: 开发经验
 tags: [开发经验]
 ---
 
+## Linux 中的 hostname
+
+在 Linux 中与机器相关的 name 有: hostname, domainname, nodename. 
+
+其中 hostname 记录着 the name of the current host, 按我理解, 内核本身并不关心这个取值如何, 只是提供个机制(或者缓冲区)让用户根据需要自定义这个 name, 就像是 windows/macOS 提供的机器名机制一样. hostname 的设置与获取由系统调用 [gethostname()/sethostname()](http://man7.org/linux/man-pages/man2/sethostname.2.html) 完成, 对应着用户命令是 [hostname](http://man7.org/linux/man-pages/man1/hostname.1.html). 在机器启动时, 内核(或者其他组件)会将 `/etc/hostname` 文件内容设置为 hostname. 这个字段在 proc 文件系统中对应着 `/proc/sys/kernel/hostname`. 在 hostname 更改之后, 最好同时改一下 `/etc/hosts` 文件使得 `ping ${hostname}` 这种命令可以正常地将新改后的 hostname 解析为 127.0.0.1
+
+domainname 记录着 [NIS](https://en.wikipedia.org/wiki/Network_Information_Service) or YP domain name, 根据 WIKI 了解到, NIS/YP 应该是个已经是历史的服务了, 所以按我理解 domainname 应该是没啥用了. domainname 的设置与获取对应着系统调用 [setdomainname/getdomainname](http://man7.org/linux/man-pages/man2/getdomainname.2.html). 在 proc 文件系统中对应着 `/proc/sys/kernel/domainname`. 在我的系统上, domainname 取值总是为 `(none)`..
+
+nodename, 比较奇怪的是我只在 [hostname](http://man7.org/linux/man-pages/man1/hostname.1.html) 看到过这个字段, 而且也没有找到文章中提到的 getnodename() 这个函数位置. 所以关于这个字段一头雾水==
+
+[uname](http://man7.org/linux/man-pages/man2/uname.2.html); 这里主要介绍下 uname 获取到的 utsname struct 中 nodename, domainname 字段语义: 这两个字段就是上面所说的 hostname, domainname. 即 sethostname/setdomainname 之后, uname() 返回结果也会被相应调整了.
+
+另外提一句, docker 可以在 run 容器时通过 `--hostname` 指定待启动容器的 hostname.
+
 ## GCC 中的 _Decimal64, _Decimal128
 
 根据 GCC MANUAL, GCC 支持 _Decimal64, _Decimal128 类型, 分别实现了 IEEE 754-2008 标准中定义的 decimal float point format, 在 encoding 选择上, _Decimal64/128 即可能采用了 DPD (Densely Packed Decimal), 也可能是 BID (Binary Integer Decimal), 这是根据 GCC 构建时的 configuration 来选择的, 默认情况下实测是 BID. 一个检测方法是编译如下 demo:
