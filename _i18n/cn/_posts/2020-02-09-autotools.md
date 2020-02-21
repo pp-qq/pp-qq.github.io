@@ -3,7 +3,7 @@ title: "GNU Autotools 一览"
 tags: ["gcc"]
 ---
 
-老实说, 这篇文章对你来说可能并没有啥用, 我也只是想为 PostgreSQL 加入 c++ 构建支持才去了解下 autotools 的. 不过按照我的习惯, 既然了解了就应该总结一下, 既然总结了那就正好发出来吧==
+老实说, 这篇文章对你来说可能并没有啥用, 我也只是想为 PostgreSQL 加入 c++ 构建支持才去了解下 autotools 的(之所以想加入 C++ 构建支持主要是想着改(huo)造(hai)一下 PG 当前的 [XLOG 模块](https://blog.hidva.com/2020/02/08/pgxlog/)). 不过按照我的习惯, 既然了解了就应该总结一下, 既然总结了那就正好发出来吧==
 
 GNU Autotools, 和 cmake 一样, 都是一种构建工具. GNU Autotools 由众多工具组成, 每个工具都有自己的文档, 所以对于初入者来说显得一头雾水, 不知从何入手. 本文试图以一种体系化的方式来介绍 GNU Autotools.
 
