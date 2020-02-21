@@ -6,6 +6,14 @@ tags: ["Postgresql/Greenplum"]
 
 这里记录着对 Postgresql/Greenplum 代码学习期间总结记录的一些东西, 这些东西大多篇幅较小(或者质量不高...), 以至于不需要强开一篇 POST.
 
+## pg_xlogdump
+
+pg_xlogdump, 用来 dump xlog segment file, 我们这里介绍一下 pg_xlogdump 的使用姿势. pg_xlogdump 的主要意图便是 dump 指定 start LSN, end LSN 区间内的所有 xlog record. 其中 LSN 给定形式是: logid/recoff, 其中 logid 为 LSN 的高 32 位, recoff 为 LSN 的低 32 位. 比如 LSN 22411048 便对应着 '0/155f728', 没有 '0x' 前缀. 
+
+之后 pg_xlogdump 会根据 start LSN 计算出相应的 segment filename, 然后再在指定的路径列表下搜索 segment file, 若找到则打开 segment file 并开始 dump 工作. 这里搜索路径列表包括 '.' 当期目录, './pg_xlog' 等.
+
+pg_xlogdump 的 start LSN, end LSN 除了显式给定之外, 还可以通过 segment filename 指定, 对于 start LSN 来说, 由 segment filename 计算出来的 LSN 便是 start LSN. 对于 end LSN 来说, 由 segment filename 计算出来的 LSN 再加上 segment filesize(默认: 16M)之后才是 end LSN.
+
 ## 为啥 PG 中要持久化 cmin/cmax?
 
 按照 PG 说法: 对 cmin/cmax 的持久化主要是用来判断事务内的可见性, 若事务内 SQL A 在扫描时发现某行 cmin 发生在自身 commandId 之前, 那么它就晓得这行对自己是可见的. 但这就有一个问题了: PG 中事务内的 SQL 总是串行执行的, 所以若 SQL A 扫描时发现某行 xmin 等于自身事务, 那么它就晓得这行是自身事务插入的, 即这行肯定是同一事务内在 SQL A 之前的 SQL 插入的, 也即这行对 SQL A 来说是可见的. 不过话说 PG 中 SQL 在扫描时能否看到自己插入的行呢? 如果能看到自身插入的行, 那么语义上这些行对自身是否应该是可见的呢? 如果 PG 中 SQL 扫描上可能会看到自身插入的行, 并且我们从语义上规定这些行对自身是不可见的, 那么我们确实需要 cmin 这个值来判断一下. 
@@ -39,3 +47,38 @@ NextTuple() 返回该 plan 获取到的下一行数据, 若返回 NULL 则表明
 所以 executor 的实现可以简单认为就是反复调用 PlannedStmt 中最顶层 plan node 的 NextTuple() 方法, 直至返回为 NULL. 所以 PG 并未像 presto 那样, 算子(也即 plan node)之间通过 page 来通信, 一个 page 中包含了很多行, 从而来实现 batch 化. 或许我们可以搞个优化....
 
 而对于 utility statement, 他们的执行并不需要优化器来做各种优化, 直接根据各自 utility 语义按照规则执行即可. utility 语句执行入口见 ProcessUtility().
+
+## PG 9.6
+
+>   记录了对 PG9.6 文档的学习总结
+
+log shipping; Directly moving WAL records from one database server to another is typically described as log shipping. PG 中有 file-based log shipping, 以及 Record-based log shipping. 顾名思义, file-based log shipping 是指一次传递一个 xlog segment file. record-based log shipping 是指一次传递一个 xlog record.
+
+warm standy, 基于 log shipping 技术实现, 简单来说便是 standby server 通过一次 basebackup 启动之后, 接下来会不停地从 primary 上读取 xlog 并应用. 在此过程中, standby 会周期性地执行类似 checkpoint 的机制, 即 restartpoint. 使得在 standby 收到 activate 信号之后, 其只需要消费完最后一次 restartpoint 之后的 xlog records, 便可提供可用服务, 这个时间窗口往往很短暂. 这也正是被称为 "warm" standby 的原因. 在 '26.2.2. Standby Server Operation', 介绍了 standby server 的大致流程, 即 standby server 被拉起之后执行的操作序列. 在 '26.2.3', '26.2.4' 中介绍了为开启 warm standby, standby server 以及 primary 所需的配置. 
+
+hot standby, A warm standby server can also be used for read-only queries, in which case it is called a Hot Standby server. 我个人对这块技术兴致泛泛..
+
+Streaming replication; 便是 PG 实现 record-based log shipping 的技术. 当 standby server 使用 Streaming replication 时, 会创建个 wal receiver 进程, wal receiver 会使用 '51.3. Streaming Replication Protocol' 中介绍地协议连接 primary, 之后 primary 会为此创建一个 wal sender 进程, 之后 wal sender 与 wal receiver 会继续使用着 Streaming Replication Protocol 进行通信以及数据交互. 参考 '26.2.5.2. Monitoring' 节了解如何查询 wal sender, wal receiver 的状态.
+
+Replication Slots, PG 引入 replication slots 主要是为了解决两个问题:
+
+-   wal segment 被过早回收, 在 replication slot 之前是通过 wal_keep_segments 或者 wal archive 来解决的.
+-   rows 被 vacuum 过早回收, 在此之前是通过 hot_standby_feedback 与 vacuum_defer_cleanup_age 解决.
+
+参考 '26.2.6. Replication Slots' 了解 replication slots 如何创建, 以及如何查询当前 replication slots 状态等.
+
+Synchronous Replication; When requesting synchronous replication, each commit of a write transaction will wait until confirmation is received that the commit has been written to the transaction log on disk of both the primary and standby server. Read only transactions and transaction rollbacks need not wait for replies from standby servers. Subtransaction commits do not wait for responses from standby servers, only top-level commits. Long running actions such as data loading or index building do not wait until the very final commit message. All two-phase commit actions require commit waits, including both prepare and commit. 与此相关的有两个 GUC: synchronous_commit, synchronous_standby_names. 
+
+archive_mode GUC; 目前一个 PG 实例可以有三种工作模式: archive recovery, standby, normal. archive_mode 控制着在这三种模式下, wal archiver 的行为. 这里 'archive recovery' 模式是指 '25.3. Continuous Archiving and Point-in-Time Recovery (PITR)' 中新 server 会处于的一种模式.
+
+checkpointer process, 由 postmaster 启动的一个常驻进程, 负责 checkpoint 的执行. checkpointer process 会在指定条件满足时执行 checkpoint, 这些条件包括: max_wal_size, checkpoint_timeout, 或者用户手动执行了 CHECKPOINT 语句等. 在 checkpoint 执行时, a special checkpoint record is written to the log file. Any changes made to data files before that point are guaranteed to be already on disk. In the event of a crash, the crash recovery procedure looks at the latest checkpoint record to determine the point in the log (known as the redo record) from which it should start the REDO operation. 
+
+因此若想临时性关闭 checkpoint, 只需要无限增大 max_wal_size, checkpoint_timeout 即可.
+
+控制 The number of WAL segment files 的因素: min_wal_size, max_wal_size, the amount of WAL generated in previous checkpoint cycles, wal_keep_segments, wal archiving, replication slot 等, 详细了解的话可以参考 '30.4. WAL Configuration'.
+
+restartpoints, In archive recovery or standby mode, the server periodically performs restartpoints, which are similar to checkpoints in normal operation: the server forces all its state to disk, updates the pg_control file to indicate that the already-processed WAL data need not be scanned again, and then recycles any old log segment files in the pg_xlog directory. Restartpoints can’t be performed more frequently than checkpoints in the master because restartpoints can only be performed at checkpoint records. A restartpoint is triggered when a checkpoint record is reached if at least checkpoint_timeout seconds have passed since the last restartpoint, or if WAL size is about to exceed max_wal_size.
+
+PITR, 也即 online backup. 与此相对的是 offline backup, offline backup 操作简单粗暴: 关停集群, 拷贝数据目录, 基于新数据目录重新启动集群. 在 online backup 期间, 会强制开启 full page write 特性, 这时因为 online backup 得到 base backup tar 包中的 page 可能是部分写入的, 因此需要 force full page write 来修正.
+
+exclusive/non-exclusive basebackup. Low level base backups can be made in a non-exclusive or an exclusive way. The non-exclusive method is recommended and the exclusive one is deprecated and will eventually be removed. A non-exclusive low level backup is one that allows other concurrent backups to be running (both those started using the same backup API and those started using pg_basebackup).
