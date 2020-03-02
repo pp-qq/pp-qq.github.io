@@ -82,3 +82,22 @@ restartpoints, In archive recovery or standby mode, the server periodically perf
 PITR, 也即 online backup. 与此相对的是 offline backup, offline backup 操作简单粗暴: 关停集群, 拷贝数据目录, 基于新数据目录重新启动集群. 在 online backup 期间, 会强制开启 full page write 特性, 这时因为 online backup 得到 base backup tar 包中的 page 可能是部分写入的, 因此需要 force full page write 来修正.
 
 exclusive/non-exclusive basebackup. Low level base backups can be made in a non-exclusive or an exclusive way. The non-exclusive method is recommended and the exclusive one is deprecated and will eventually be removed. A non-exclusive low level backup is one that allows other concurrent backups to be running (both those started using the same backup API and those started using pg_basebackup).
+
+### 继承与分区
+
+table inheritance, 子表会从父表上继承列定义以及相关约束, 当同名列在继承层次中多次出现, then these columns are “merged” so that there is only one such column in the child table. 合并主要是合并了 Inheritable check constraints and not-null constraints.
+
+继承关系的创建与变更, 可以通过 CREATE TABLE 时 INHERITS 子句来指定关联的父表, 也可以后续通过 ALTER TABLE 来动态修改.
+
+各种 SQL 行为在继承下的表现: 
+
+-   SELECT/UPDATE/DELETE 默认包括子表的数据, 这一行为可以通过 sql_inheritance GUC 控制. 使用 ONLY 修饰可以禁止对子表数据的包含. 使用 `*` 来修饰表名可以显式指定包含子表数据. 
+-   INSERT/COPY 只会将数据插入到父表中. 可以理解这一行为, 并且 INSERT 默认也不晓得如何将数据插入到子表
+-   ALTER TABLE will propagate any changes in column data definitions and check constraints down the inheritance hierarchy
+-   Commands that do database maintenance and tuning (e.g., REINDEX, VACUUM) typically only work on individual, physical tables and do not support recursing over inheritance hierarchies.
+-   indexes (including unique constraints) and foreign key constraints only apply to single tables, not to their inheritance children. 
+
+分区; 在 PG 中可以利用继承这一特性来实现分区, 具体步骤参考 '5.10.2. Implementing Partitioning'. 关于 INSERT 路由这里, 除了像 5.10.2 中介绍通过触发器之外, 还可以通过 REWRITE RULE, 参考 '5.10.5. Alternative Partitioning Methods'. 这俩优缺点参考 5.10.5 中介绍. 另外 5.10.5 还介绍通过 VIEW 实现分区表的姿势. 注意对于带有 ON CONFLICT 的 INSERT 来说, 无法是触发器还是 REWRITE RULE 路由, 效果都可能不符合预期.
+
+Constraint exclusion; 参考 '5.10.4. Partitioning and Constraint Exclusion' 介绍. 简单来说, 就是 planner 根据表 check 约束中的信息可以得知表中不包含查询需要的数据, 因此可以避免对该表的扫描操作. All constraints on all partitions of the master table are examined during constraint exclusion, so large numbers of partitions are likely to increase query planning time considerably. Partitioning using these techniques will work well with up to perhaps a hundred partitions; don’t try to use many thousands of partitions.
+
