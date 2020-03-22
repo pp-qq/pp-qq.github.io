@@ -4,7 +4,13 @@ hidden: true
 tags: ["Postgresql/Greenplum"]
 ---
 
-这里记录着对 Postgresql/Greenplum 代码学习期间总结记录的一些东西, 这些东西大多篇幅较小(或者质量不高...), 以至于不需要强开一篇 POST.
+这里记录着对 Postgresql/Greenplum 代码学习期间总结记录的一些东西, 这些东西大多篇幅较小(或者质量不高...), 以至于不需要强开一篇 POST. 若不特殊说明, 本节内容来源于 PG9.6 文档 + PG 9.6 的代码. 或者 GP 6.4 文档 + GP master 代码, 具体 commit id: 53d12bd56fd124fa1b0bcd0d72ff7cf69f0bd441.
+
+## GP 与 presto
+
+GP 与 presto 的分布式执行框架完全类似. 在 [presto 文档](https://prestodb.io/docs/current/overview/concepts.html) 中所涉及到的每一个概念都可以在 GP 中找到对等的概念. 在 presto 中, 每一个 driver 处理一个 split, driver 内 operator 每次以 page 为单位来读取数据, page 采用了列式存储的方式存放了多行数据, page 内使用 block 来存放一列内容. presto 中 driver 就类似于 GP 中的 slice, 而 presto task 就类似于同一个 slice 在 GP 中同一台机器上所有 primary segment 上的集合. 简单来说: 假设一个 presto 集群有 4 个 worker, 某个表 t 有 16 个 split, 那么 presto 一个 task 在一个 worker 上会有 4 个 driver, 每个 driver 消费一个 split 的数据. 这就对应着一个 GP 集群, 有 4 台机器, 每台机器上有 4 个 primary segment.
+
+只是在 presto 中算子之间是以 page 为单位来交换数据的, 而 GP 中是以行为单位交换的. 
 
 ## Greenplum 中的分布式事务
 
@@ -195,3 +201,314 @@ FDW 支持 remote join, 未细看, 见原文 'If an FDW supports remote joins...
 FDW 支持 AGG; 未细看.. 见原文 'An FDW might additionally support direct execution of...' 节.
 
 'PlanForeignModify and the other callbacks described' 之后内容未看, 目测与写入有关.
+
+### Index Methods and Operator Classes
+
+Access method, index access method. 按照我的理解, PG 最初是希望所有对表数据, 索引数据的访问都通过 access method 来进行, 这样就可以把 PG 内核与具体的数据存储格式隔离开, 便于今后新数据存储格式的引入. 目前 PG 中只有 index 实现了这种访问姿势, 即 index access method, 也即新实现一个索引类型只需要新实现一个 index access method 即可, 完全不需要改动 PG 内核. 话说目前业界也在试图实现 table access method, 比如像 zstore 等.
+
+operator class, operator class 是 PG 中 type 与 index 之间的桥梁. operator class 有两部分组成: 
+
+-   operators, 又被称为 strategy. the set of WHERE-clause operators that can be used with an index (i.e., can be converted into an index-scan qualification). 即告诉优化器, 当在 WHERE 条件中出现这些 operators 时, 可以试下 index scan.
+-   support procedures, 由 index access method 内部使用. 一般 index access method 会使用 support procedures 来确定数据在 index 中的位置.
+
+PG index access method 使用 number 来标识 operator, support procedures. 简单来说, 就是 index access method 根据其实现细节为其支持的 operators, 以及要使用 support procedures 各指定一个 int 整数标识符, 之后用户在定义 operator class 时, 将指定的 int 整数标识符关联到对应的 operator 或者 function 上. 比如 btree index access method 支持的 number 参考 'Table 36-2', 那么当用户为一个新类型建立 btree operator class 时的姿势就可以是:
+
+```sql
+CREATE OPERATOR CLASS CUSTOM_TYPE_ops
+DEFAULT FOR TYPE CUSTOM_TYPE USING btree AS
+	OPERATOR    1   <  (CUSTOM_TYPE, CUSTOM_TYPE),  
+	OPERATOR    2   <= (CUSTOM_TYPE, CUSTOM_TYPE),
+	OPERATOR    3   =  (CUSTOM_TYPE, CUSTOM_TYPE),
+	OPERATOR    4   >= (CUSTOM_TYPE, CUSTOM_TYPE),
+	OPERATOR    5   >  (CUSTOM_TYPE, CUSTOM_TYPE),
+	FUNCTION    1   CUSTOM_TYPE_cmp(CUSTOM_TYPE, CUSTOM_TYPE);
+```
+
+default operator class. It is possible to define multiple operator classes for the same data type and index method. By doing this, multiple sets of indexing semantics can be defined for a single data type. For example, a B-tree index requires a sort ordering to be defined for each data type it works on. It might be useful for a complex-number data type to have one B-tree operator class that sorts the data by complex absolute value, another that sorts by real part, and so on. Typically, one of the operator classes will be deemed most commonly useful and will be marked as the default operator class for that data type and index method. 当对给定列建立索引时, 若此时未显式指定 operator class, 那么则使用 default operator class.
+
+operator family; An operator family contains one or more operator classes, and can also contain indexable operators and corresponding support functions that belong to the family as a whole but not to any single class within the family. We say that such operators and functions are “loose” within the family, as opposed to being bound into a specific class. Typically each operator class contains single-data-type operators while cross-data-type operators are loose in the family. 参见 '36.14.5. Operator Classes and Operator Families' 第一段了解 operator family 背景. 这里我有一个非常适当的例子可以活生生地展示下 operator family 的使用场景, 但是现在太晚了, 我要睡觉了, 就不写了. 等我以后有空时吧~
+
+既然有了 operator family, 为啥我们还需要 operator class. The reason for defining operator classes is that they specify how much of the family is needed to support any particular index. If there is an index using an operator class, then that operator class cannot be dropped without dropping the index — but other parts of the operator family, namely other operator classes and loose operators, could be dropped. Thus, an operator class should be specified to contain the minimum set of operators and functions that are reasonably needed to work with an index on a specific data type, and then related but non-essential operators can be added as loose members of the operator family.
+
+operator class 不单单用来与索引交互. PostgreSQL uses operator classes to infer the properties of operators in more ways than just whether they can be used with indexes. Therefore, you might want to create operator classes even if you have no intention of indexing any columns of your data type. 参见 '36.14.6. System Dependencies on Operator Classes' 了解.
+
+order operator, search operator; 参见 '36.14.7. Ordering Operators' 了解. 简单来说就是可以用索引实现 order by 子句.
+
+lossy index. 参见 '36.14.8. Special Features of Operator Classes' 了解, 简单来说就是 lossy index scan 返回的结果集是实际 WHERE 结果集的超集, 此时在 index scan 之后仍需要一一判断下 index scan 返回的每一行是否匹配条件.
+
+STORAGE clause. 参见 '36.14.8. Special Features of Operator Classes' 了解, 简单来说就是对于一个类型 T 来说, 其存放在索引的可以是另外一个类型.
+
+## Partitioning Large Tables
+
+> 基于 GP6.4 文档
+
+首先看下 DISTRIBUTED BY 与 PARTITION BY 区别: Table distribution is physical: Greenplum Database physically divides partitioned tables and non-partitioned tables across segments to enable parallel query processing. Table partitioning is logical: Greenplum Database logically divides big tables to improve query performance and facilitate data warehouse maintenance tasks, such as rolling old data out of the data warehouse. Partitioning does not change the physical distribution of table data across the segments. 所以是先计算分布, 然后再计算分区了?!
+
+GPDB 支持多级分区, 一个多级分区表看上去像是一棵树. 每一级分区上可以采用多种分区姿势: 
+
+-	range partitioning: division of data based on a numerical range, such as date or price.
+-	list partitioning: division of data based on a list of values, such as sales territory or product line.
+
+In a multi-level partition design, only the subpartitions at the bottom of the hierarchy can contain data. 分区树中每一个节点都有对应的 CHECK 约束, 用来限制能插入该分区的数据. 如:
+
+```sql
+zhanyi=# \d+ mlp
+                  Table "public.mlp"
+ Column |  Type   | Modifiers | Storage  | Description 
+--------+---------+-----------+----------+-------------
+ id     | integer |           | plain    | 
+ year   | integer |           | plain    | 
+ month  | integer |           | plain    | 
+ day    | integer |           | plain    | 
+ region | text    |           | extended | 
+Child tables: mlp_1_prt_1,
+              mlp_1_prt_2
+Has OIDs: no
+Distributed by: (id)
+Partition by: (year)
+
+zhanyi=# \d+ mlp_1_prt_1
+              Table "public.mlp_1_prt_1"
+ Column |  Type   | Modifiers | Storage  | Description 
+--------+---------+-----------+----------+-------------
+ id     | integer |           | plain    | 
+ year   | integer |           | plain    | 
+ month  | integer |           | plain    | 
+ day    | integer |           | plain    | 
+ region | text    |           | extended | 
+Check constraints:
+    "mlp_1_prt_1_check" CHECK (year >= 2000 AND year < 2005)
+Inherits: mlp
+Child tables: mlp_1_prt_1_2_prt_asia,
+              mlp_1_prt_1_2_prt_europe,
+              mlp_1_prt_1_2_prt_usa
+Has OIDs: no
+Distributed by: (id)
+Partition by: (region)
+```
+
+分区表的 INSERT; 表的分区可以直接被 INSERT, 此时 GP 就会按照如上 CHECK 约束来检查 INSERT 是否合法. 当然也可以使用根节点位置的表作为 INSERT 目标, 此时 GP 会自动路由. 
+
+Default Partition; 无论每级分区采用的是 range partitioning 还是 list partitioning, 都可以指定 Default Partition, 不满足那些显式指定条件的数据将会被插入到 Default Partition 中. default partition 上没有 check. ~~我还以为会智能地根据已有 partition check 来推测 default partitoin 呢.~~ 因此在应用直接插入数据到 Default Partition 时, 需要确认 the data in the default partition must not contain data that would be valid in other leaf child partitions of the partitioned table. Otherwise, queries against the partitioned table with the exchanged default partition that are executed by the Pivotal Query Optimizer might return incorrect results.
+
+分区与 Unique; A primary key or unique constraint on a partitioned table must contain all the partitioning columns. A unique index can omit the partitioning columns; however, it is enforced only on the parts of the partitioned table, not on the partitioned table as a whole.
+
+uniform 分区; uniform 是分区表的一个属性, 分区表是否是 uniform 的规则判定参见 [uniform](https://gpdb.docs.pivotal.io/43320/admin_guide/query/topics/query-piv-uniform-part-tbl.html#topic1). 考虑到 uniform 可以随意操作分区情况, uniform 并不总是成立的. 
+
+分区裁剪; The query optimizer uses CHECK constraints to determine which table partitions to scan to satisfy a given query predicate. The DEFAULT partition (if your hierarchy has one) is always scanned. DEFAULT partitions that contain data slow down the overall scan time. The following limitations can result in a query plan that shows a non-selective scan of your partition hierarchy. 可以通过 explain 查看 scan 了那些 partition.
+
+分区与继承; Internally, Greenplum Database creates an inheritance relationship between the top-level table and its underlying partitions, similar to the functionality of the INHERITS clause of PostgreSQL. The Greenplum system catalog stores partition hierarchy information so that rows inserted into the top-level parent table propagate correctly to the child table partitions. 为啥非得创建个继承关系把分区与继承这俩扯一块去, 感觉不相干啊. 按我理解 GP 估计是要 PG 正好提供的继承模型来对 INSERT 进行路由. 但总觉怪怪的!
+
+分区最佳实践; Consider partitioning by the most granular level. A multi-level design can reduce query planning time. 当然这只是一般情况下, 原文也讲了. When you create multi-level partitions on ranges, it is easy to create a large number of subpartitions, some containing little or no data. This can add many entries to the system tables, which increases the time and memory required to optimize and execute queries. but a flat partition design runs faster.
+
+Exchanging a Partition; 相当于 swap 操作, 但是仅会 swap 一些元信息, 以及数据指针. 在 exchange 非 default partition 时, GP 默认会利用 partition 上的 check 约束来检查数据合法性. 可以使用  WITHOUT VALIDATION 来关闭这一行为. 在 exchange default paritition 时, default partition 上没有任何 check 导致 GP 无法检查数据合法性, 所以默认 GP 不允许 exchange default partition. 如果强行 exchange default partition, 需要用户确认数据满足放入 Default Partition. 如下例子演示 Exchanging a Leaf Child Partition with an External Table:
+
+```sql
+zhanyi=# \d+ sales_2000_ext;
+        External table "public.sales_2000_ext"
+ Column |  Type   | Modifiers | Storage  | Description
+--------+---------+-----------+----------+-------------
+ id     | integer |           | plain    |
+ year   | integer |           | plain    |
+ qtr    | integer |           | plain    |
+ day    | integer |           | plain    |
+ region | text    |           | extended |
+Type: readable
+Encoding: UTF8
+Format type: csv
+Format options: delimiter ',' null '' escape '"' quote '"'
+External location: gpfdist://172.17.0.6:8080/sales_2000
+
+zhanyi=# \d+ sales_1_prt_yr_1
+            Table "public.sales_1_prt_yr_1"
+ Column |  Type   | Modifiers | Storage  | Description
+--------+---------+-----------+----------+-------------
+ id     | integer |           | plain    |
+ year   | integer |           | plain    |
+ qtr    | integer |           | plain    |
+ day    | integer |           | plain    |
+ region | text    |           | extended |
+Check constraints:
+    "sales_1_prt_yr_1_check" CHECK (year >= 2000 AND year < 2001)
+Inherits: sales
+Has OIDs: no
+Distributed by: (id)
+
+zhanyi=# select * from sales_2000_ext;
+ id | year | qtr | day |     region
+----+------+-----+-----+----------------
+  1 | 2000 |   1 |   1 | blog.hidva.com
+  3 | 2000 |   1 |   1 | blog.hidva.com
+  2 | 2000 |   1 |   1 | blog.hidva.com
+  4 | 2000 |   1 |   1 | blog.hidva.com
+(4 rows)
+
+zhanyi=# select * from public.sales_1_prt_yr_1
+zhanyi-# ;
+ id | year | qtr | day |     region
+----+------+-----+-----+----------------
+  3 | 2000 |   1 |   1 | blog.hidva.com
+  1 | 2000 |   1 |   1 | blog.hidva.com
+  2 | 2000 |   1 |   1 | blog.hidva.com
+(3 rows)
+
+-- swap 后.
+
+zhanyi=# ALTER TABLE sales ALTER PARTITION yr_1
+zhanyi-#    EXCHANGE PARTITION yr_1
+zhanyi-#    WITH TABLE sales_2000_ext WITHOUT VALIDATION;
+NOTICE:  exchanged partition "yr_1" of partition "yr_1" of relation "sales" with relation "sales_2000_ext"
+ALTER TABLE
+zhanyi=# select * from public.sales_1_prt_yr_1;
+ id | year | qtr | day |     region
+----+------+-----+-----+----------------
+  1 | 2000 |   1 |   1 | blog.hidva.com
+  3 | 2000 |   1 |   1 | blog.hidva.com
+  2 | 2000 |   1 |   1 | blog.hidva.com
+  4 | 2000 |   1 |   1 | blog.hidva.com
+(4 rows)
+
+zhanyi=# select * from sales_2000_ext;
+ id | year | qtr | day |     region
+----+------+-----+-----+----------------
+  3 | 2000 |   1 |   1 | blog.hidva.com
+  1 | 2000 |   1 |   1 | blog.hidva.com
+  2 | 2000 |   1 |   1 | blog.hidva.com
+(3 rows)
+
+zhanyi=#  \d+ sales_2000_ext;
+             Table "public.sales_2000_ext"
+ Column |  Type   | Modifiers | Storage  | Description
+--------+---------+-----------+----------+-------------
+ id     | integer |           | plain    |
+ year   | integer |           | plain    |
+ qtr    | integer |           | plain    |
+ day    | integer |           | plain    |
+ region | text    |           | extended |
+Check constraints:
+    "sales_1_prt_yr_1_check" CHECK (year >= 2000 AND year < 2001)
+Has OIDs: no
+Distributed by: (id)
+
+zhanyi=# \d+ sales_1_prt_yr_1
+       External table "public.sales_1_prt_yr_1"
+ Column |  Type   | Modifiers | Storage  | Description
+--------+---------+-----------+----------+-------------
+ id     | integer |           | plain    |
+ year   | integer |           | plain    |
+ qtr    | integer |           | plain    |
+ day    | integer |           | plain    |
+ region | text    |           | extended |
+Type: readable
+Encoding: UTF8
+Format type: csv
+Format options: delimiter ',' null '' escape '"' quote '"'
+External location: gpfdist://172.17.0.6:8080/sales_2000
+Check constraints:
+    "sales_1_prt_yr_1_check" CHECK (year >= 2000 AND year < 2001)
+
+```
+
+## pg_partition
+
+The pg_partition system catalog table is used to track partitioned tables and their inheritance level relationships. Each row of pg_partition represents either the level of a partitioned table in the partition hierarchy, or a subpartition template description. The value of the attribute paristemplate determines what a particular row represents. 按我理解 pg_partition 是根据分区表建表 DDL 收集到的信息来填充的. 下面以一个具体分区表在 pg_partition 中的元信息来介绍 pg_partition:
+
+```sql
+CREATE TABLE p3_sales (id int, year int, month int, day int, 
+region text)
+DISTRIBUTED BY (id)
+PARTITION BY RANGE (year)
+    SUBPARTITION BY RANGE (month)
+       SUBPARTITION TEMPLATE (
+        START (1) END (2) EXCLUSIVE EVERY (1), 
+        DEFAULT SUBPARTITION other_months )
+           SUBPARTITION BY LIST (region)
+             SUBPARTITION TEMPLATE (
+               SUBPARTITION usa VALUES ('usa'),
+               DEFAULT SUBPARTITION other_regions )
+( START (2002) END (2004) EXCLUSIVE EVERY (1), 
+  DEFAULT PARTITION outlying_years );
+```
+其在 pg_partition 的元信息有:
+
+```
+zhanyi=# select oid,parrelid::regclass,* from pg_partition;
+  oid   | parrelid | parrelid | parkind | parlevel | paristemplate | parnatts | paratts | parclass 
+--------+----------+----------+---------+----------+---------------+----------+---------+----------
+ 104106 | p3_sales |   103395 | r       |        0 | f             |        1 | 2       | 1978
+ 104143 | p3_sales |   103395 | r       |        1 | t             |        1 | 3       | 1978
+ 104144 | p3_sales |   103395 | r       |        1 | f             |        1 | 3       | 1978
+ 104219 | p3_sales |   103395 | l       |        2 | t             |        1 | 5       | 1994
+ 104220 | p3_sales |   103395 | l       |        2 | f             |        1 | 5       | 1994
+(5 rows)
+```
+
+可以看到:
+
+parrelid, The object identifier of the table. 即分区表根表对应的 oid.
+parnatts, 按我理解存放着分区列的个数. 一般取值为 1. 不晓得 PG/GP 是否支持指定多个分区列. 
+paratts, parclass; 一一对应. `paratts[i]`, 使用 `SELECT * FROM pg_attribute WHERE attrelid = ${parrelid} and attnum = ${paratts[i]};` 可以查找到分区列的具体信息. `parclass[i]`, 存放着该分区列对应的 op class 信息.
+parlevel, paristemplate; 根据 DDL 可以看到, 在 parlevel = 0 层使用 year 列取值来进行分区. 而且是以非模板的. 在 parlevel = 1 层使用 month 列值进行分区, 这里是以模板形式建立的分区. 在 parlevel = 2 层使用 region 列来建立分区. 根据 pg_partition 中的元信息可以看到, 使用模板建立的分区其在 pg_partition 中对应着两行, 一行描述着分区级别本身. 一行表明了该级分区是通过模板建立的. ~~感觉是有点重复描述了.~~. 另外也可以看到分区树中叶子节点那一层(parlevel=3)并未在 pg_partition 表中体现.
+
+
+## pg_partition_rule
+
+按我理解, pg_partitoin 中每一行在 pg_partition_rule 中都对应着多行, 来描述某个特定级层分区的信息. 对于 paristemplate=true 的行, 其在 pg_partition_rule 中对应的行记录着模板取值, 此时这些行不与任何具体的分区表关联, 仅是用来存放模板的信息. 如 oid=104143 的 pg_partition 行在 pg_partiton_rule 对应的行信息:
+
+```
+zhanyi=# select * from pg_partition_rule where paroid = 104143;
+-[ RECORD 1 ]-----+----------------------------------------------------------------------------------------------------------
+paroid            | 104143
+parchildrelid     | 0  # 取值为 0, 不关联任何具体的分区表.
+parparentrule     | 0
+parname           | 
+parisdefault      | f
+parruleord        | 2
+parrangestartincl | t
+parrangeendincl   | f
+parrangestart     | ({CONST :consttype 23 :constlen 4 :constbyval true :constisnull false :constvalue 4 [ 1 0 0 0 0 0 0 0 ]})  -- 0x1 小端模式(不明白为啥展示是 8 个字节.
+parrangeend       | ({CONST :consttype 23 :constlen 4 :constbyval true :constisnull false :constvalue 4 [ 2 0 0 0 0 0 0 0 ]})
+parrangeevery     | ({CONST :consttype 23 :constlen 4 :constbyval true :constisnull false :constvalue 4 [ 1 0 0 0 0 0 0 0 ]})
+parlistvalues     | <>
+parreloptions     | 
+partemplatespace  | 0
+-[ RECORD 2 ]-----+----------------------------------------------------------------------------------------------------------
+paroid            | 104143
+parchildrelid     | 0
+parparentrule     | 0
+parname           | other_months
+parisdefault      | t
+parruleord        | 1
+parrangestartincl | f
+parrangeendincl   | f
+parrangestart     | <>
+parrangeend       | <>
+parrangeevery     | <>
+parlistvalues     | <>
+parreloptions     | 
+partemplatespace  | 0
+```
+
+对于 paristemplate=false 的行, 其在 pg_partition_rule 中对应的行记录着该级层分区下所有的子分区表的信息. 如对于 parlevel = 0 的行, 其有三个子分区, 所以在 pg_partition_rule 中对应着三行, 这三行分别存放着三个子分区的具体信息. 对于 parlevel = 1 的行, 这一层本身有三个分区表, 每个分区表又有 2 个子分区, 所以共有 6 个子分区表. 所以在 pg_partition_rule 中并不会有分区根表的信息.
+
+这里介绍下 pg_partition_rule 部分比较特别的列的语义, 其他列语义描述参考 [GP 官方文档](https://gpdb.docs.pivotal.io/5190/ref_guide/system_catalogs/pg_partition_rule.html). 
+
+parchildrelid; 存放着当前分区表在 pg_class 的 oid. 这里列名包含 'child' 是站在 pg_partition 的角度来看待的.
+parparentrule; 这里原文应该是写错了. 该列存放着当前分区表父表在 pg_partition_rule 的 oid, 所以 references 是 pg_partition_rule.oid.
+parname; 当前分区表在建表 DDL 中的名字. 若用户未显式指定, 则为空. 如:
+
+```
+oid               | 104343
+parchildrelname   | p3_sales_1_prt_2_2_prt_2_3_prt_other_regions
+paroid            | 104220
+parchildrelid     | 103844
+parparentrule     | 104145
+parname           | other_regions
+--------
+oid               | 104307
+parchildrelname   | p3_sales_1_prt_2_2_prt_other_months_3_prt_usa
+paroid            | 104220
+parchildrelid     | 103712
+parparentrule     | 104207
+parname           | usa
+```
