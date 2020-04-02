@@ -120,7 +120,23 @@ NextTuple() 返回该 plan 获取到的下一行数据, 若返回 NULL 则表明
 
 所以 executor 的实现可以简单认为就是反复调用 PlannedStmt 中最顶层 plan node 的 NextTuple() 方法, 直至返回为 NULL. 所以 PG 并未像 presto 那样, 算子(也即 plan node)之间通过 page 来通信, 一个 page 中包含了很多行, 从而来实现 batch 化. 或许我们可以搞个优化....
 
-而对于 utility statement, 他们的执行并不需要优化器来做各种优化, 直接根据各自 utility 语义按照规则执行即可. utility 语句执行入口见 ProcessUtility().
+而对于 utility statement, 他们的执行并不需要优化器来做各种优化, 直接根据各自 utility 语义按照规则执行即可. utility 语句执行入口见 ProcessUtility(). utility 语句在 PG 中的处理是非常直白的, 在 ProcessUtility() 之前基本上不会对 Parsetree 做任何处理; 在 ProcessUtility 执行时可能会稍作处理, 之后根据 parsetree 的内容直接执行了. 而且 PG 中一条 utility 可能会拆分为多条 utility 执行. 比如带有 primary key 的 CREATE TABLE 在 PG 中就被拆分为多个 stmt 执行的. 第一条 stmt 是一个纯粹地创建表的 statement, 第二条 stmt 是一个 CREATE INDEX 子句用来创建 primary key 使用的 index.
+
+## PG 中的加减列
+
+在 PG 中, 针对一个表, 其约定表中每个列都有一个唯一标识, 该标识在列被创建之后指定, 之后永远不变, 即使列被删除了, 列对应的标识也不会被复用.
+
+PG 中新增列会将新列写入到 heapfile 中, 手动试了下 `ALTER TABLE ADD COLUMN colname coltype DEFAULT defval` 是这样的. 本来我以为这个时候没必要写入的, 毕竟 heapfile 中每一行都记录着 attrite number, 在读取时如果发现一列并没有在 heapfile 中, 那么使用列的默认值即可. 但后来想到这样一种场景, 比如:
+
+```sql
+ADD COLUMN i INT DEFAULT 3
+SELECT i FROM t; -- 此时返回 3.
+CHANGE COLUMN i DEFAULT 33
+SELECT i FROM t; -- 此时同一行的 i 将返回 33. 这样感觉之前 SET DEFAULT 3 的 SQL 就没被持久化.
+```
+
+PG 中列删除, 只是简单地在 pg_attribute 标记下, 不会改动 heapfile, 另外 pg_attribute 记录的 attval, attlen 这些与 pg_type 中某些字段重合的信息使得即使列的类型也被删除了, 仍然不影响对 heapfile tuple 的解析. 此时 INSERT 对于 dropped column 的处理会认为他们是 NULL. (所以 NULL 在数据库中是不可缺少的...
+
 
 ## syscache, relcache, invalid message queue
 
@@ -182,6 +198,8 @@ Constraint exclusion; 参考 '5.10.4. Partitioning and Constraint Exclusion' 介
 
 ### FDW
 
+FDW 相关 catalog; pg_catalog.pg_foreign_table 中存放着每一个 fdw table 相关信息.
+
 FDW 的组成部分, 参考 '55.1. Foreign Data Wrapper Functions' 了解. 简单来说就是一个 handler function, 一个 validator function.
 
 handler function 中涉及到各个回调的语义, 参考 '55.2. Foreign Data Wrapper Callback Routines' 了解, 其内介绍了每个回调在 PG 中的语义以及使用场景, FDW 作者应该忠实地实现这些回调. 
@@ -192,7 +210,11 @@ Foreign Data Wrapper Query Planning; 根据 55.2 中介绍可以看到 FDW 一�
 
 在优化器/执行器所用到的结构中, 所有 fdw_private 或者类似的字段都是专门用于 FDW 的, FDW 作者可以在这里面存放一些特定的信息. 这些 fdw_private 包括 RelOptInfo::fdw_private ForeignPath::fdw_private, ForeignScan::fdw_private 等. ForeignScan::fdw_exprs 也仅被 FDW 使用, 不过这时要遵循一定的约定, 即 fdw_exprs 内只能存放 Expr, These trees will undergo post-processing by the planner to make them fully executable.
 
-对 GetForeignPlan() 参数 scan_clauses 的处理, scan_clauses 表明 FDW SCAN 必须吐出满足这些条件的 tuple. 简单方法是直接把 scan_clauses 交给 ForeignScan plan node’s qual list, 让 PG 的执行器来负责处理过滤. 高端一点的话: 可以找出能被 FDW 自身执行的, 然后把剩下地无法被 FDW 自身执行的放入 plan node’s qual list. ForeignScan::fdw_exprs 就是用来存放这些能被 FDW 自身过滤的 Expr. 注意 The actual identification of such a clause should happen during GetForeignPaths, since it would affect the cost estimate for the path. 另外这部分被 FDW 自身过滤的 Expr 也要处理好于 EvalPlanQual 交互, 具体咋处理参考原文 'Any clauses removed from the plan node’s qual list must instead...' 段. 
+对 GetForeignPlan() 参数 scan_clauses 的处理. 若 FDW 本身不考虑任何条件下推的功能, 那么处理姿势很简单, 只需要在 GetForeignPlan 时像 file_fdw 中 fileGetForeignPlan 做法一样, 把 `extract_actual_clauses(scan_clauses, false)` 去掉 pseudoconstant expression 之后的 qual list 交给 ForeignScan::qual 即可. 此时会由 PG 本地执行器来完成条件的过滤.  若 FDW 本身需要考虑条件下推的功能, 那么在 GetForeignPaths 阶段就需要把哪些准备下推的 qual 找出来, 之后和 cost_index() 中做法一样, 对于下推的 qual 按照 FDW 自己的意思来计算 qualcost, 对于不能下推准备在 PG 执行的 qual, 调用 cost_qual_eval 来计算这些 qualcost, 之后把两类 qual qualcost 汇总设置为 Path cost. 最后在 GetForeignPlan 时, 将准备下推到 FDW 的 qual 从 scan_clauses 中移除出去. 
+
+若某些准备下推的 qual 部分输入需要在本地运算(我并不晓得有哪些这样的场景..), 可以把这部分 expression 放入 ForeignScan::fdw_exprs 中, planner 会对这些 expression 调用 set_plan_references 来做一些处理使得 fdw_exprs 变为可执行的状态.
+
+fdw_scan_tlist; 参考原文了解其语义. 在执行器 ExecInitForeignScan 构造 ForeignScanState 时, 若发现 ForeignScan tlist 与 fdw_scan_tlist 不符合, 则会生成相应的 Projectinfo.
 
 FDW parameterized path 的生成, 参考:  'In join queries, it might also choose to construct path(s) that depend on join clauses..'
 
@@ -226,9 +248,11 @@ DEFAULT FOR TYPE CUSTOM_TYPE USING btree AS
 
 default operator class. It is possible to define multiple operator classes for the same data type and index method. By doing this, multiple sets of indexing semantics can be defined for a single data type. For example, a B-tree index requires a sort ordering to be defined for each data type it works on. It might be useful for a complex-number data type to have one B-tree operator class that sorts the data by complex absolute value, another that sorts by real part, and so on. Typically, one of the operator classes will be deemed most commonly useful and will be marked as the default operator class for that data type and index method. 当对给定列建立索引时, 若此时未显式指定 operator class, 那么则使用 default operator class.
 
-operator family; An operator family contains one or more operator classes, and can also contain indexable operators and corresponding support functions that belong to the family as a whole but not to any single class within the family. We say that such operators and functions are “loose” within the family, as opposed to being bound into a specific class. Typically each operator class contains single-data-type operators while cross-data-type operators are loose in the family. 参见 '36.14.5. Operator Classes and Operator Families' 第一段了解 operator family 背景. 这里我有一个非常适当的例子可以活生生地展示下 operator family 的使用场景, 但是现在太晚了, 我要睡觉了, 就不写了. 等我以后有空时吧~
+operator family; An operator family contains one or more operator classes, and can also contain indexable operators and corresponding support functions that belong to the family as a whole but not to any single class within the family. We say that such operators and functions are “loose” within the family, as opposed to being bound into a specific class. Typically each operator class contains single-data-type operators while cross-data-type operators are loose in the family. 参见 '36.14.5. Operator Classes and Operator Families' 第一段了解 operator family 背景. ~~这里我有一个非常适当的例子可以活生生地展示下 operator family 的使用场景, 但是现在太晚了, 我要睡觉了, 就不写了. 等我以后有空时吧~~~
 
 既然有了 operator family, 为啥我们还需要 operator class. The reason for defining operator classes is that they specify how much of the family is needed to support any particular index. If there is an index using an operator class, then that operator class cannot be dropped without dropping the index — but other parts of the operator family, namely other operator classes and loose operators, could be dropped. Thus, an operator class should be specified to contain the minimum set of operators and functions that are reasonably needed to work with an index on a specific data type, and then related but non-essential operators can be added as loose members of the operator family.
+
+opclass/opfamily 对 operator 的重要性; 要知道 PG 是支持用户自定义类型与 operator 的, 对于一个用户定义的 operator, 当其未出现在任何 operator class/family 中时, PG 对这个 operator 的背景知识是一无所知的, 这就意味着如果我们在 WHERE 中使用了这个 operator, 那么 PG 将只能走 seqscan. 当一个 operator 出现在某个 operator class/family 中时, 这就意味着根据这个 operator 在 opclass/opfamily 所处的位置, 即 strategy number, PG 就知晓了这个 operator 相关的特性, 从而在优化过程中, 根据这些特性做出某些优化动作. 以 operator `<(CUSTOM_TYPE, CUSTOM_TYPE)` 为例, 若其未出现在任何 opclass/opfamily 中, 那么当该 operator 出现在 WHERE 条件中时, 将只能走 seqscan 来判断这个 operator. 但是如果 operator 出现在某个 opclass/opfamily strategy = 1 对应的位置, 那么 PG 便知道了 operator `<(CUSTOM_TYPE, CUSTOM_TYPE)` 是 CUSTOM_TYPE 这个类型的 lessthan 比较运算符. 意味着对于 CUSTOM_TYPE 类型的 A, B, C, 若 `A < B`, `B < C`, 那么 PG 便知道 `A < C` 也是成立的. 同样若 `B < C`, 并且 `B < A` 不成立, 那么 PG 便知道 `C < A` 也肯定不成立. 很显然此时 `<` 的实现要符合 PG 这里的假设要求! 也意味着当 `<` 出现在 WHERE 条件中, 并且此时有相关索引时, 那么 PG 就会考虑 indexscan. 参见 '举个栗子' 节对此情况的演示.
 
 operator class 不单单用来与索引交互. PostgreSQL uses operator classes to infer the properties of operators in more ways than just whether they can be used with indexes. Therefore, you might want to create operator classes even if you have no intention of indexing any columns of your data type. 参见 '36.14.6. System Dependencies on Operator Classes' 了解.
 
@@ -237,6 +261,114 @@ order operator, search operator; 参见 '36.14.7. Ordering Operators' 了解. �
 lossy index. 参见 '36.14.8. Special Features of Operator Classes' 了解, 简单来说就是 lossy index scan 返回的结果集是实际 WHERE 结果集的超集, 此时在 index scan 之后仍需要一一判断下 index scan 返回的每一行是否匹配条件.
 
 STORAGE clause. 参见 '36.14.8. Special Features of Operator Classes' 了解, 简单来说就是对于一个类型 T 来说, 其存放在索引的可以是另外一个类型.
+
+#### 举个栗子
+
+假设我们现在自定义了类型 MagicInt2, MagicInt4, 大部分情况下这俩类型与 int2, int4 类型具有相同的性质, 除了:
+
+- 不支持 MagicInt2 与 MagicInt4 相互之间的转换.
+- `<(MagicInt2, MagicInt2)` 与 `<(MagicInt2, MagicInt4)` 的比较规则如下伪代码所示:
+
+  ```c
+  bool lessthan(MagicInt2 left, MagicInt2/* MagicInt4 */ right) {
+    if (left <= 10)
+      return true;
+    if (left <= 500)
+      return false;
+    if (left <= 600)
+      return true;
+    return false;
+  }
+  ```
+
+同时我们也定义了 MagicIntOps operator family 以及 MagicInt2Ops, MagicInt4Ops operator class:
+
+```sql
+CREATE OPERATOR FAMILY MagicIntOps USING btree;
+
+CREATE OPERATOR CLASS MagicInt2Ops
+DEFAULT FOR TYPE MagicInt2 USING btree FAMILY MagicIntOps AS
+  OPERATOR    1   <  (MagicInt4, MagicInt4)
+  ...;
+
+CREATE OPERATOR CLASS MagicInt4Ops
+DEFAULT FOR TYPE MagicInt4 USING btree FAMILY MagicIntOps AS
+  OPERATOR    1   <  (MagicInt4, MagicInt4)
+  ...;
+```
+
+之后再做一下准备工作:
+
+```sql
+CREATE TABLE t(i int, d64 MagicInt2);
+INSERT INTO t SELECT i, i FROM generate_series(1, 1000000) f(i);
+CREATE INDEX on t(d64); 
+ANALYZE t;
+SET enable_seqscan TO off;
+```
+
+之后可以看到 `<(MagicInt2, MagicInt4)` 出现在 WHERE 条件中时, PG 只会有 seqscan path. 
+
+```sql
+zhanyi=# explain select i from t where d64 < '11'::MagicInt4;
+                                                     QUERY PLAN                                                      
+---------------------------------------------------------------------------------------------------------------------
+ Gather Motion 3:1  (slice1; segments: 3)  (cost=100000000000000000000.00..100000000000000000000.00 rows=15 width=4)
+   ->  Seq Scan on t  (cost=100000000000000000000.00..100000000000000000000.00 rows=5 width=4)
+         Filter: (d64 < '11.00'::MagicInt4)
+ Optimizer: Postgres query optimizer
+```
+
+与之相对的是 `<(MagicInt2, MagicInt2)` 出现在 WHERE 中时, PG 会选择 index scan 这个更高效的链路.
+
+```sql
+zhanyi=# explain select i from t where d64 < '11'::MagicInt2;
+                                 QUERY PLAN                                  
+-----------------------------------------------------------------------------
+ Gather Motion 3:1  (slice1; segments: 3)  (cost=0.15..0.41 rows=15 width=4)
+   ->  Index Scan using t_d64_idx on t  (cost=0.15..0.41 rows=5 width=4)
+         Index Cond: (d64 < '11.00'::MagicInt2)
+ Optimizer: Postgres query optimizer
+```
+
+另外也有个有趣的现象是:
+
+```sql
+zhanyi=# explain select d64 from t where d64 < '11'::MagicInt2;
+                                  QUERY PLAN                                  
+------------------------------------------------------------------------------
+ Gather Motion 3:1  (slice1; segments: 3)  (cost=0.15..0.41 rows=15 width=8)
+   ->  Index Only Scan using t_d64_idx on t  (cost=0.15..0.41 rows=5 width=8)
+         Index Cond: (d64 < '11.00'::MagicInt2)
+ Optimizer: Postgres query optimizer
+
+zhanyi=# explain select d64 from t where d64 < '11'::MagicInt4;
+                                  QUERY PLAN                                  
+------------------------------------------------------------------------------
+ Gather Motion 3:1  (slice1; segments: 3)  (cost=0.15..0.41 rows=15 width=8)
+   ->  Index Only Scan using t_d64_idx on t  (cost=0.15..0.41 rows=5 width=8)
+         Index Cond: (d64 < '11.00'::MagicInt4)
+ Optimizer: Postgres query optimizer
+```
+
+可以看到由于我们这里只 `SELECT d64` 使得 PG 发现单纯地 index only scan 便可以满足要求. 但这里两个 index only scan 执行起来是不太一样的! 对于 `d64 < '11'::MagicInt2` 这条查询, 当 index only scan 遇到 `d64 = 11`, 发现此时 `d64 < '11'::MagicInt2` 不再成立, 而且这里使用的 `<` 是出现在 operator class 的, 所以 PG 会认为在 `d64=11` 之后的行都不再满足 `d64 < '11'::MagicInt2`, 所以便会终止 index only scan, 也即意味着最终仅会返回 10 行. 但对于 `d64 < '11'::MagicInt4` 这条查询, PG 虽然是 index only scan, 但会扫描完 index, 不会提前终止. 所以:
+
+```sql
+zhanyi=# select count(d64) from t where d64 < '11'::MagicInt4;
+ count 
+-------
+   110  -- 扫描完 index 中所有 entry.
+
+zhanyi=# select count(d64) from t where d64 < '11'::MagicInt2;
+ count 
+-------
+    10
+```
+
+根据我们之前对 `<` 的实现可知 110 便是期望结果, 之所以在 `d64 < '11'::MagicInt2` 时结果只有 10 行, 是由于我们这里的实现未满足 PG 的假设, 很显然是我们的实现错误了, 毕竟是为了演示.
+
+在我们把 `<(MagicInt2, MagicInt4)` 加入到 operator family MagicIntOps 中时, PG 便知道了 `<(MagicInt2, MagicInt4)` 这个运算符相关背景信息以及相关假设: 比如对于 MagicInt2 类型的 B, C; 以及 MagicInt4 类型的 A, 当 B < C, 并且 B < A 不成立时, PG 便会顺理成章地假设 C < A 也是不成立的. 此后 `d64 < '11'::MagicInt2` 与 `d64 < '11'::MagicInt4` 的行为便完全一致了. 
+
 
 ## Partitioning Large Tables
 
@@ -407,6 +539,32 @@ External location: gpfdist://172.17.0.6:8080/sales_2000
 Check constraints:
     "sales_1_prt_yr_1_check" CHECK (year >= 2000 AND year < 2001)
 
+```
+
+分区表的 ALTER TABLE 语法; 考虑到多级分区的存在, 对分区表树中某个节点的 ALTER 操作需要明确指出从分区表根节点到该节点的访问路径. 这是通过 0 个或多个 ALTER PARTITION 子句来指定的. 每一个 ALTER PARTITION 有三种方式来指定下一个分区节点: parition_number, `FOR (RANK(number))`, `FOR ('value')`, 关于这三种方式语义参考 GP ALTER TABLE 文档. 多个 ALTER PARTITION 确定的下一个分区节点链表就组成了一个访问路径. 下面举个例子:
+
+```sql
+CREATE TABLE p3_sales4 (id int, day int, year int, month int, region text)
+PARTITION BY LIST (year) 
+SUBPARTITION BY LIST (month) 
+    SUBPARTITION TEMPLATE (VALUES(1), VALUES(2))
+SUBPARTITION BY LIST (region) 
+    SUBPARTITION TEMPLATE (VALUES ('usa'), VALUES ('asia'))
+(VALUES(2018), VALUES(2019));
+```
+
+如上 SQL 会创建出具有如下分区层次的分区表:
+
+![]({{site.url}}/assets/p3_sales4.jpg)
+
+如果想对 Y2018M2Rasia 分区叶子表做一个 exchange 操作, 对应的 ALTER TABLE 语法便是:
+
+```sql
+ALTER TABLE p3_sales4   -- 首先从根节点出发
+ALTER PARTITION FOR ('2018')  -- 这里指定了第 0 层分区中可以存放 year=2018 的那个分区.
+ALTER PARTITION FOR ('2')  -- 指定了第 1 层分区中可以存放 month=2 的那个分区.
+EXCHANGE PARTITION FOR ('asia')   -- 指定了第 2 层分区中可以存放 region='asia' 的那个分区. 并对该分区做一次 exchange 操作.
+WITH TABLE xxx;
 ```
 
 ## pg_partition

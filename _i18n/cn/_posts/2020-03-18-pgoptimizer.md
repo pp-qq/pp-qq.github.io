@@ -24,6 +24,10 @@ RangeTblEntry; 在语义分析 querytree 中, PG 使用 RangeTblEntry 来表示�
 
 RelOptInfo 用于优化阶段中表示一张表. 所有 RelOptInfo 也都会被组织成一个 array, 其他地方也是通过 index 来索引. 具体来说 PlannerInfo::simple_rel_array 字段存放着所有 RELOPT_BASEREL/RELOPT_OTHER_MEMBER_REL/RELOPT_DEADREL 类型的 RelOptInfo 结构. 表示 relid 指定 RTE 对应的 RelOptInfo 结构就存放在 simple_rel_array[relid] 中. PlannerInfo::join_rel_list 字段存放着所有 RELOPT_JOINREL 类型的 RelOptInfo. PlannerInfo::upper_rels 用来存放着所有的 RELOPT_UPPER_REL 类型的 RelOptInfo, 这里面具体组织方式参考 'Post scan/join planning'.
 
+参见 'flat rangetable' 节了解执行阶段执行器对表的组织.
+
+无论是在语义分析, 优化, 还是执行阶段, 用来表示 table 的索引总是从 1 开始, 但是对应的数组/list下标却总是从 0 开始, 因此在根据索引取出对应结构时要想 rt_fetch 一样记得减 1.
+
 ## inheritance or UNION ALL 
 
 本节从整体上介绍下 PG 对于继承以及 UNION ALL 的实现机制. 
