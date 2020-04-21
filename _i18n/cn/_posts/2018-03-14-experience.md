@@ -3,6 +3,38 @@ title: 开发经验
 tags: [开发经验]
 ---
 
+## perf record & perf report
+
+这里介绍一些从 `perf record --help/perf report --help` 中看不到的知识:
+
+`perf report -g`; 可用来展示特定函数在不同调用者处的耗时, 比如 funcA 被 funcB, funcC 调用, 在某次运行时, funcA 自身 CPU 耗时 200s, 其中 150s 来自于 funcB 对 funcA 的调用, 另 50s 来自于 funcC 的调用. 那么 perf report -g 展示效果可能如下:
+
+```
+funcA
+    0.75 funcB
+    0.25 funcC
+```
+
+`perf report -g` 后可以指定额外的参数(即 type)来控制具体展示效果. 
+
+-   flat; 表明平铺地形式展示. 我理解应该是把 funcA, funcB, funcC 放在同一级别下:
+
+    ```
+            funcA
+    0.75    funcB
+    0.25    funcC
+    ```
+
+-   graph/fractal 使用树形结构展示, 即 funcB/funcC 在 funcA 的下一级. 在 graph 中, funcB/funcC 函数名前的百分比是绝对值, 等同于 `--percentage absolute`. 而 fractal 意味着 funcB/funcC 函数名前的百分比使用的是相对值, 等同于 `--percentage relative` 效果.
+
+`perf report -g` 的 min 参数, 我理解是指当占比低于 min 的函数调用不需要展示. 比如 `perf report -g graph,0.5` 意味着耗时占比低于 50% 的函数不需要展示出来. 意味着这时只会展示:
+
+```
+funcA
+    0.75 funcB
+    // funcC 耗时低于 0.5, 所以被忽略了.
+```
+
 ## Linux 中的 hostname
 
 在 Linux 中与机器相关的 name 有: hostname, domainname, nodename. 

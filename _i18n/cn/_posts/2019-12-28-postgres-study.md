@@ -143,6 +143,66 @@ PG 中列删除, 只是简单地在 pg_attribute 标记下, 不会改动 heapfil
 为了提升 backend 查询 system catalog 的效率, PG 中引入了 syscache, relcache 来加速这一过程. 既然是 cache, 就需要引入 cache 的同步机制, 也就是 invalid message queue. 关于 relcache, syscache 的介绍参考 [PostgreSQL的SysCache和RelCache](https://niyanchun.com/syscache-and-relcache-in-postgresql.html) 这篇文章. 关于对 invalid message queue 介绍参考我在 sinvaladt.c 中的注释.
 
 
+## pg_dump
+
+archiver; 在 pg_dump 中, 其针对一个特定库 dump 生成的 SQL 会通过 archiver interface 存入 backup archiver 中. 在 pg_restore 时, 其会从 backup archiver 中提取出 SQL 之后执行 SQL 来 restore.
+
+archive format; pg_dump/pg_restore 支持多种格式的 backup archiver, 参见 ArchiveFormat 注释了解. 不同的 archive format 在 _archiveHandle 中对应着不同的函数实现, 参见 InitArchiveFmt_Null 了解 plan archiver 下 _archiveHandle 各个回调对应的实际函数取值. 这里我理解不同的 archiver format 面向的输入都是相同的, 就是各种 SQL, 之后不同的 archiver format 采用了不同的方法来处理输入. 具体一点上, pg_dump 会在需要输出的时候调用 ahprintf/ahwrite 等函数, ahwrite 实现上根据不同的 archive format 调用不同的回调.
+
+backup 链路, 基于 GP 4.3/PG 8.2 中代码而来, 可能有点老了, 参见 https://yuque.antfin-inc.com/olap_platform/pg/ddxzdf#ade264a9 了解具体细节. 简单来说, pg_dump 基于 PG 中所有数据都可以用对象表示这一特点来实现的, 在 PG 中, 所有数据都可以视为对象, 不同的对象具有不同的属性. 因此 pg_dump 整体链路便是获取所有待遍历的对象, 按照对象之间的依赖关系对对象进行拓扑排序, 然后再一一 dump 对象.
+
+1.  函数 getSchemaData() 获取所有待遍历的 object 列表. 包括函数, AGG, table 等. 并存放在全局变量中. 参见 getTables() 注释与实现了解如何获取所有待遍历的表.
+2.  getTableData() 只会对非分区表, 或者分区根节点表来构造相应的 TableDataInfo 实例. 也即 TableData 也被看做是一个普通的 Dumpable object, 对 TableData 的 dump 会使用 COPY TO 命令来进行.
+3.  getDependencies(); 构造对象之间的依赖关系.
+4.  sortDumpableObjects(); 利用依赖关系定义的偏序来进行拓扑排序, 这里若 A 是 B 的依赖之一, 则要求 A 先于 B dump.
+5.  dumpDumpableObject() 等函数开始实际的备份工作. 可以以 dumpTable() 为例了解 pg_dump 是如何根据 getTables 收集的信息来完成表 schema 的 dump 的.  
+
+plain backup, restore; 当 pg_dump 时采用了 plain archiver format 时, 此时会与 restore 共有部分链路, 主要是 plain archiver format 与 restore 确实有一些共性. 在 plain archiver format 时, pg_dump 从数据库中各种元信息查询获取到所有待备份的对象以及对象对应的 define SQL, drop SQL 等, 在非 plain archiver format 时, 会将这些内容按照 format 自己格式持久化起来. 在 plain format 时, 需要直接把这些 SQL 直接输出到指定文件. 而 restore 时则是从输入 archiver backup 中提取到所有对象以及他们的定义语句, 之后把这些 SQL 发送给一个特定的数据库连接来进行 restore. 所以可以看到 plain format backup 与 restore 输入都是一堆 SQL, 只不过两者目的地不一样, plain format backup 需要把 SQL 送往到持久化文件中, 而 restore 则是需要把 SQL 送往另外一个数据库连接. 
+
+## 默认值与继承
+
+pg_attrdef; 存放着表列的默认值定义. 考虑到 DEFAULT NULL 是 PG 默认行为, 因此若列默认值为 DEFAULT NULL 时, 不会在 pg_attrdef 存放该列默认值定义. 如:
+
+```
+pg=# create table t3(i int, j int default null, z int default 33);
+CREATE TABLE
+Time: 3.972 ms
+pg=# select adrelid::regclass, adnum, pg_get_expr(adbin, adrelid) from pg_attrdef where adrelid = 't3'::regclass ;
+ adrelid | adnum | pg_get_expr 
+---------+-------+-------------
+ t3      |     3 | 33
+(1 row)
+```
+
+结合继承情况下, 若表列默认值定义来自于其父表, 那么在 pg_attrdef 也会有一行对应的记录, 如:
+
+```
+create table t(i int default 3);
+pg=# create table t1( i int ) INHERITS(t);
+NOTICE:  merging column "i" with inherited definition
+CREATE TABLE
+Time: 2.148 ms
+pg=# select adrelid::regclass, adnum, pg_get_expr(adbin, adrelid) from pg_attrdef ;
+ adrelid | adnum | pg_get_expr 
+---------+-------+-------------
+ t       |     1 | 3
+ t1      |     1 | 3
+(2 rows)
+```
+
+因此在 pg_dump flagInhAttrs() 函数中, 若父表有 default 定义, 但是子表没有 default 定义时, 意味着子表显式指定了 DEFAULT NULL, 即如下场景:
+
+```
+create table t(i int default 3);
+create table t1( i int default null) INHERITS(t);
+pg=# select adrelid::regclass, adnum, pg_get_expr(adbin, adrelid) from pg_attrdef ;
+ adrelid | adnum | pg_get_expr 
+---------+-------+-------------
+ t       |     1 | 3
+```
+
+
+
 ## PG 9.6
 
 >   记录了对 PG9.6 文档的学习总结
@@ -177,6 +237,23 @@ restartpoints, In archive recovery or standby mode, the server periodically perf
 PITR, 也即 online backup. 与此相对的是 offline backup, offline backup 操作简单粗暴: 关停集群, 拷贝数据目录, 基于新数据目录重新启动集群. 在 online backup 期间, 会强制开启 full page write 特性, 这时因为 online backup 得到 base backup tar 包中的 page 可能是部分写入的, 因此需要 force full page write 来修正.
 
 exclusive/non-exclusive basebackup. Low level base backups can be made in a non-exclusive or an exclusive way. The non-exclusive method is recommended and the exclusive one is deprecated and will eventually be removed. A non-exclusive low level backup is one that allows other concurrent backups to be running (both those started using the same backup API and those started using pg_basebackup).
+
+约束; 大体来说, PG 中约束可以分为列级别约束, 如 NOT NULL 这些; 以及表级别约束, 如 CHECK 这些. 在列级别约束中, NOT NULL 约束直接放在 pg_attribute 系统表 attnotnull 字段中. 对于其他约束, 则统一存放在 pg_constraint 系统表中.
+
+pg_constraint, coninhcount 我理解表示当前约束在直接父类中同名约束的个数. 比如:
+
+```sql
+CREATE TABLE t1( i int, j int, CONSTRAINT y CHECK ( i > 33 ));
+CREATE TABLE t2( i int, j int, CONSTRAINT y CHECK ( i > 33 ));
+```
+
+此时 t2.y.coninhcount = 0
+
+```sql
+ALTER TABLE t2 inherit t1;
+```
+此时 t2.y.coninhcount = 1
+
 
 ### 继承与分区
 
@@ -431,6 +508,38 @@ uniform 分区; uniform 是分区表的一个属性, 分区表是否是 uniform 
 
 分区与继承; Internally, Greenplum Database creates an inheritance relationship between the top-level table and its underlying partitions, similar to the functionality of the INHERITS clause of PostgreSQL. The Greenplum system catalog stores partition hierarchy information so that rows inserted into the top-level parent table propagate correctly to the child table partitions. 为啥非得创建个继承关系把分区与继承这俩扯一块去, 感觉不相干啊. 按我理解 GP 估计是要 PG 正好提供的继承模型来对 INSERT 进行路由. 但总觉怪怪的!
 
+另外分区中 INDEX 之间也是有继承关系的. 在分区表父表上建立的 index 会自动在子表上也建立对应的 index, 这时 GP 认为子表 index 继承父表 index. 如下:
+
+```sql
+create table t ( i int primary key, j int ) partition by list (i) (values(2018) , values(2019));
+```
+
+此时 pg_constraint:
+
+```
+zhanyi=# select oid,pg_get_constraintdef(oid),conrelid::regclass, conindid::regclass from pg_constraint where conindid != 0;
+  oid  | pg_get_constraintdef | conrelid  |    conindid    
+-------+----------------------+-----------+----------------
+ 36020 | PRIMARY KEY (i)      | t         | t_pkey
+ 36022 | PRIMARY KEY (i)      | t_1_prt_1 | t_1_prt_1_pkey
+ 36024 | PRIMARY KEY (i)      | t_1_prt_2 | t_1_prt_2_pkey
+(3 rows)
+```
+
+pg_inherits:
+
+```
+zhanyi=# select inhrelid::regclass, inhparent::regclass from pg_inherits ;
+    inhrelid    | inhparent 
+----------------+-----------
+ t_1_prt_1      | t
+ t_1_prt_2      | t
+ t_1_prt_1_pkey | t_pkey
+ t_1_prt_2_pkey | t_pkey
+```
+
+相应地 t_pkey 对应 pg_class 中 relhassubclass 也为 true 了.
+
 分区最佳实践; Consider partitioning by the most granular level. A multi-level design can reduce query planning time. 当然这只是一般情况下, 原文也讲了. When you create multi-level partitions on ranges, it is easy to create a large number of subpartitions, some containing little or no data. This can add many entries to the system tables, which increases the time and memory required to optimize and execute queries. but a flat partition design runs faster.
 
 Exchanging a Partition; 相当于 swap 操作, 但是仅会 swap 一些元信息, 以及数据指针. 在 exchange 非 default partition 时, GP 默认会利用 partition 上的 check 约束来检查数据合法性. 可以使用  WITHOUT VALIDATION 来关闭这一行为. 在 exchange default paritition 时, default partition 上没有任何 check 导致 GP 无法检查数据合法性, 所以默认 GP 不允许 exchange default partition. 如果强行 exchange default partition, 需要用户确认数据满足放入 Default Partition. 如下例子演示 Exchanging a Leaf Child Partition with an External Table:
@@ -670,3 +779,85 @@ parchildrelid     | 103712
 parparentrule     | 104207
 parname           | usa
 ```
+
+## Exchange Partition 实现猜测
+
+这里从现象入手简单猜测一下 Exchange partition 背后的原理. 具体操作是执行了 ALTER ... EXCHANGE PARTITION, 根据 xlog dump 分析出修改了哪些表, 之后 dump exchange partition 前后这些表的数据, 并进行了对比.
+
+首先看下 partition 组织, 如上所示 GP 中是 pg_partition, pg_partition_rule 两个系统表存放着分区表的结构. 所以 exchange partition A with table B 会发生如下变更, 这里假设 A 在分区层次中的父表是 C, 这里 A, B, C 均是表的 oid, 而不是表名.
+
+1.  把 A 在 pg_partition_rule 中记录的 parchildrelid 换为 B 表的 oid. 
+2.  表约束, 既然 A, B 可以 exchange, 那么 GP 自然认为 A 拥有的分区表约束, B 自然也满足, 所以会把 A 的表约束同时加到 B 上. 考虑到 A 中数据仍然符合表约束, 所以 GP 这里不会移除 A 的约束. 所以如果 B 是 external table, 那么虽然 B 在语法上不能使用 CHECK 子句来指定表约束, 但 exchange 之后 B 便自然具有表约束了. 具体变化是:
+
+    -   在 pg_constraint 表中为 B 新增相应记录, 这里新增约束记录与 A 现有约束记录基本上完全一致, 除了 coninhcount 字段.. 同时更新 B::relchecks 字段从 0 变为 A::relchecks 的值. 这里有个 [BUG](https://github.com/greenplum-db/gpdb/issues/9956) 呦~
+3.  之后在修改下继承关系, 移除 A 的继承关系, 加上 B 的继承关系; 这里假设 exchange 前, A 的父表是 C, 那么该步会让 B 继承 C, 同时移除 A 对 C 的继承. 具体行为是:
+
+    1.  A 的列在 pg_attribute 对应的 attislocal 字段从 'f' 变为 't', attinhcount 从 1 变为 0.
+    2.  B 的列则进行了相反的改变, 即 attislocal 从 't' 变为 'f', attinhcount 从 0 变为 1.
+    3.  A 中约束对应 coninhcount 变为 0.
+    4.  由于 B 中某些约束在 C 中也存在, 所以这里会更新 B 中约束 coninhcount 取值.
+    5.  pg_inherits 中相应记录的变更: 移除 A 与 C 的继承关系, 新增 B 与 C 的继承关系.
+
+    对应的 SQL  应该是:
+
+    ```sql
+    ALTER TABLE A NO INHERIT C;
+    ALTER TABLE B INHERIT C;
+    ```
+
+    但这里实际发生的行为与如上 SQL 又不太一样. 比如:
+
+    ```sql
+    create table t1( i int, j int );
+    create table t2 ( i int, j int, z int );
+    ```
+
+    此时 t2 列的属性:
+
+    ```
+    zhanyi=# select attname,attislocal,attinhcount from pg_attribute where attrelid  = 't2'::regclass;
+        attname    | attislocal | attinhcount 
+    ---------------+------------+-------------
+    gp_segment_id | t          |           0
+    tableoid      | t          |           0
+    cmax          | t          |           0
+    xmax          | t          |           0
+    cmin          | t          |           0
+    xmin          | t          |           0
+    ctid          | t          |           0
+    i             | t          |           0
+    j             | t          |           0
+    z             | t          |           0
+    (10 rows)
+    ```
+
+    执行 `alter table t2 inherit t1;` 之后:
+
+    ```
+    zhanyi=# select attname,attislocal,attinhcount from pg_attribute where attrelid  = 't2'::regclass;
+        attname    | attislocal | attinhcount 
+    ---------------+------------+-------------
+    gp_segment_id | t          |           0
+    tableoid      | t          |           0
+    cmax          | t          |           0
+    xmax          | t          |           0
+    cmin          | t          |           0
+    xmin          | t          |           0
+    ctid          | t          |           0
+    i             | t          |           1
+    j             | t          |           1
+    z             | t          |           0
+    (10 rows)
+    ```
+
+    可以看到 attislocal 并没有变化.
+
+4.  为 A 对应的 record type 新增 array 类型. 在 PG/GP 中, 每当新建一个表时, 都会同时新增出两个类型: record type, array type, 其中 record type 用于可用于表示新表一行数据, array type 则是元素类型为新建 record type 的数组. 但在分区表中, 只有根表才会有对应 record type 的 array type. 中间表与叶子节点表则都只有对应的 record type. 
+    这里考虑到 A 被 exchange 了, 不再是分区表体系中一员了, 此时便会为 A 新增对应的 array type. 不过这样的话, 由于 B 是有 array type 的, B 在 exchange 时看代码 GP 也没有删除 B array type. 
+5.  会交换下 A, B 的表名. 即 swap(A.relname, B.relname). 以及 A record type, array type 与 B record type, array type 类型名.
+6.  GP 可能认为 ACL 是跟着表名走的, 所以这里也会交换下 A, B 的 relacl 字段信息. 
+7.  针对如上改动在 pg_depend 新增/删除适当的记录, 主要有:
+
+    -   A 依赖 C 的记录被移除. 新增 B 依赖 C 的记录.
+    -   B 新增的约束与 B 的依赖.
+    -   为 A 新建的 array type 对 record type 的依赖.
