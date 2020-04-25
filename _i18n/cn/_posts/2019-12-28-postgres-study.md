@@ -12,6 +12,74 @@ GP 与 presto 的分布式执行框架完全类似. 在 [presto 文档](https://
 
 只是在 presto 中算子之间是以 page 为单位来交换数据的, 而 GP 中是以行为单位交换的. 
 
+## GP 中的 slice
+
+
+plan slice; GP 会将查询切分为多个 slice, 简单来说 GP 会遍历 plantree, 每遇到一个 motion 节点便创建一个 slice, slice 之间呈现出树的结构. GP 会将查询中所有 slice 都放在一个数组中, 之后通过 slice 在数组的下标来标识着 slice, 即任何需要 slice 的地方都用 slice 下标来标识. GP 会在优化过程的最后阶段通过 cdbllize_build_slice_table 函数来收集 plan tree 中所有 slice. 在执行阶段, 所有 slice 都存放在 PlannedStmt::slices 指向的数组中. 这里 slice 下标从 0 开始.
+
+在 PlannedStmt::slices 数组中, parent slice 总是先于 child slice 存放, 这主要是采用了自顶向下的 plantree 遍历姿势. root slice, motion slice. root slice 就是位于 slice tree 根节点的 slice. motion slice 就是除 root slice 之外的所有 slice.
+
+PlanSlice, ExecSlice, SliceVec; GP 在优化阶段使用 PlanSlice 来表示着一个 slice. 在执行阶段使用 ExecSlice 来表示一个 slice. GP 会在执行开始阶段将 plan slice 转换为 exec slice, InitSliceTable() 函数用来完成这一工作. 除 PlanSlice 内容之外, ExecSlice 也存放着 Slice 相关执行时信息, 比如 slice 对应着的 gang 等. SliceVec, 每个 ExecSlice 都对应着一个 SliceVec, fillSliceVector() 函数负责为每个 ExecSlice 构造对应的 SliceVec. 关于 SliceVec 的语义, 参考 fillSliceVector() 函数, 我理解用于是用于决定 slice dispatch 顺序的.
+
+PlannedStmt::slices, EState::es_sliceTable(SliceTable 类型); GP 在执行阶段使用 EState::es_sliceTable 来存放着所有 slice 信息. 最基本的比如存放着所有 ExecSlice. 函数 InitSliceTable 会在 executor start 阶段调用, 完成 EState::es_sliceTable 的构造与初始化.
+
+根据 GP 中目前实现来看, 对于一条查询, slice tree 可能并不只有一个. 对于每一个 ExecSlice 而言, 其 rootIndex 指定了其所处 slice tree root slice index.
+
+slice DAG; 根据 GP 中目前实现来看, slice 之间并不是简单地 tree 结构, 而是 DAG 结构. 如同 markbit_dep_children() 中注释所示.
+
+
+## GP 中的执行层
+
+
+udpifc, 是 GP interconnect 层, motion 节点将使用 interconnect 能力来完成数据交互. 在 udpifc 中有两个线程, mainthread 即 PostgresMain() 所在线程, 其充当着 sender, receiver 的角色; 另一个是 rx thread, 其负责实际的包收发工作. mainthread 与 rxthread 之间通过 XXX_control_info 这类全局数据结构通信, 如: ic_control_info, rx_control_info 等. 不同的 XXX_control_info 负责完成不同的通信需求, 比如 ic_control_info 偏向于在 mainthread 与 rx thread 传递一些控制信息. 而 rx_control_info 偏向于在 mainthread 与 rx thread 传递 receiver 数据信息, 我理解应该是 rx thread 收到数据包, 解码之后放入 rx_control_info 中, 供 mainthread 读取. 函数 InitMotionUDPIFC() 会在 QD/QE backend 启动时调用, 其负责 XXX_control_info 这类全局数据结构的初始化, udp listener socket 的创建, rx thread 的启动等工作. 对于 QE 来说, 其 udp listener port 会通过 qe_listener_port parameter 返回给 QD, 参见 cdbconn_get_motion_listener_port() 函数实现.
+
+CdbComponentDatabases 生命周期管理; 很显然, 我们需要在一个事务内看到一致的 CdbComponentDatabases 信息. 也即每次在事务开始时, 都应该读取 gp_segment_configuration 构造出最新的 CdbComponentDatabases, 之后在同一事务内, CdbComponentDatabases 结构保持不变. 另外考虑到 gp_segment_configuration 实际上变更地频次应该是非常低的, 一般仅当用户使用了 gpexpand 加入了新计算节点或者发生了 primary segment 失效事件使得 FTS 进行过 primary/mirror 切换时, gp_segment_configuration 才会变更. 因此 GP 中每个 backend 都会将获取到的 CdbComponentDatabases 信息保存到全局变量 cdb_component_dbs 中, 并通过 CdbComponentDatabases::fts_version/CdbComponentDatabases::expand_version 来标识着当前 CdbComponentDatabases 信息的版本. 之后在新事务开启时, 通过 expand_version/fts_version 字段来判断 gp_segment_configuration 有没有发生过变更, 若没有, 则此时继续使用上次获取到的 CdbComponentDatabases 信息. 若发生过变更, 则此时会清除上次获取的信息, 重新读取 gp_segment_configuration 获取到最新的信息. 函数 cdbcomponent_updateCdbComponents() 会在每次事务启动时调用, 用来在必要时更新 cdb_component_dbs 中保存的 CdbComponentDatabases 信息. 函数 cdbcomponent_getCdbComponents() 用来在事务期间内调用, 获取 cdb_component_dbs 中保存到的信息.
+
+CdbComponentDatabases 同时也是一个 QE pool, 在 GP 中会将一些 IDLE QE 存放在 CdbComponentDatabaseInfo::freelist 中, 这样再下次上层调用 cdbcomponent_allocateIdleQE() 需要一个新 QE 时, GP 会优先从这些 IDLE QE 中找出满足条件的 QE 并返回, 这样避免了重复的建立连接, 认证, 初始化等逻辑.
+
+QE 的创建; 我们知道 QD 通过 libpq 发起到 primary segment 的链接来创建出 QE. 这里主要介绍下在建立连接时使用的 connection string. cdbconn_doConnectStart() 函数负责构造 connection string, 并发起到 primary segment 的建链. 这里 connection string 主要包含了如下信息:
+
+-   gpqeid; 通过 build_gpqeid_param() 函数构造, 存放着 qe 相关信息.
+-   options; 由函数 makeOptions() 构造. 其内存放着所有需要从 QD 发送给 QE 的 GUC 配置. 以及 gp_qd_hostname, gp_qd_port 即 QD 自身地址以及 listen port.
+
+另外也可以看到这里仅指定了用户名, 并没有指定用户密码, 即 QD 发往到 QE 的建链是不需要密码认证的.
+
+cdbconn_doConnectComplete() 会在连接建立完成之后调用, 此时会获取到 QE 返回的一些信息来初始化 SegmentDatabaseDescriptor 相应字段. 该函数也会设置 PQsetNoticeReceiver 来处理 QE 返回的 NOTICE 这些信息.
+
+在 QE 的建链中, 若由于 primary segment 进入了 recovery mode 等而导致的建链失败, GP 会在 cdbgang_createGang_async() 函数中进行重试.
+
+
+Motion 中的数据编码. 简单来说, 每一行数据在序列化之后都会加入个 TupSerHeader 首部, 之后再按照指定大小拆分为多个 chunk, 每个 chunk 再加个 chunk header 之后发送出去. 这里 chunk header 共 4 字节: 前 2 byte 存放着 chunk data size, 去掉 header 之后. 后 2byte 存放着 chunk type. 这里若 chunk type 为:
+
+-   TC_WHOLE; 则表明当前 chunk 内存放着包含了 TupSerHeader 首部的完整的一行内容.
+-   TC_PARTIAL_START,TC_PARTIAL_MID,TC_PARTIAL_END; 则分别表明当前 chunk 是某个完整一行内容的起始, 中间, 结束 chunk.
+
+TupSerHeader; TupSerHeader 后面跟随的内容可能是一行序列化后的结果也可能是 list<TupleDescNode> 序列化的结果, 可根据 TupSerHeader::natts/TupSerHeader::infomask 字段取值来判断 TupSerHeader 后面跟着的内容. 若 TupSerHeader 后面跟着一行序列化后的结果, 则此时具体编码格式参见 SerializeTuple() 实现, 简单来说依次存放着 nullbits 与
+数据内容, 这里数据内容采取与行在 heap file 中一样的编码.
+
+Motion sender; GP 中 motion send 有两种方法: direct send, SendChunk; direct send 是指 motion 将待发送的行直接序列化到 MotionConn::pBuff 中, 等待后台线程发送. SendChunk 则是 motion 将待发送的行序列化后存放在 TupleChunkList 中, 然后调用 SendTupleChunkToAMS() 来发送. GP 会优先使用 direct send, 当无法使用 direct send, 比如当 boardcase motion 或者 pBuff 指向空间不足时, 便会使用 send chunk 这一方法.
+
+## SharedSnapshot
+
+
+SegMates; A SegMate process group is a QE (Query Executor) Writer process and 0, 1 or more QE Reader processes, 这里总是有一个 QE writer process, 即使用户的 query 是 read-only 的, 这个 write process 又称为是 root of a query. 这些 process 都属于同一个 segment, 在单机 PG 眼中, 这些 process 是不同的 backend 彼此之间相互无感知. 但是在 GP 环境下, 这些 process 属于同一个 query, 需要相互感知并共享信息. 这就是 SharedSnapshotSlot 的由来.
+
+另外某些情况下, master 上除了 QD 之外, 某些情况下 masters have special purpose QE Reader called the Entry DB Singleton. So, the SegMate module also works on the master. 此时 writer process 角色便是由 QD 担任了吧.
+
+之所以 write process 是 root of a query, 是因为 Writer gang member 负责:
+
+-	establishes a local transaction,
+-	acquires the slot in hared snapshot shmem space and init the slot.
+-	perform database write operations.
+-	SegMates 中唯一会参与到 global transaction 的角色之一.
+-	performs any utility statement.
+
+简单来说: writer member 负责与 PG 事务模块进行交互. reader member 只需要使用 writer 设置的信息即可, reader 的 xid, command id, 以及 snapshot 都是通过 SharedSnapshot 来获取. writer 会负责设置这些.
+
+SharedSnapshot; backend 的一个全局变量, 同属于同一个 SegMate 的 reader, writer 的 SharedSnapshot.lockSlot, SharedSnapshot.desc 指向着相同的空间. reader/writer 通过这些空间来传递信息, 当然基本上都是 writer 将信息写入到这些空间, reader 来读取. 在 InitPostgres() 阶段, QE writer 会调用 addSharedSnapshot() 函数来为 SharedSnapshot.lockSlot, SharedSnapshot.desc 分配并初始化空间; QE reader 则调用 lookupSharedSnapshot() 获取到 QE writer 分配的空间, 并将空间绑定到 SharedSnapshot.lockSlot, SharedSnapshot.desc 中. 
+
+Coordinating Readers and Writers. 简单来说就是让 reader 知道 SharedSnapshot 中的信息何时才能就绪. 具体实现可以参考 readerFillLocalSnapshot.
+
 ## Greenplum 中的分布式事务
 
 分布式事务 ID, 有两部分组成: timestamp, dxid. 其中 timestamp 为实例启动时的时间戳, 在 tmShmemInit() 中被初始化为 `time()` 返回值, 之后在实例运行期间一直保持不变. dxid 是一个简单地计数器, 其在实例启动时在 tmShmemInit() 中被初始化为 1; 函数 currentDtxActivate() 会负责为当前分布式事务分配一个 dxid. 目前看仅当 query 需要 write 时才会分配 dxid, 以及显式 BEGIN 开启事务时也会分配. 当 dxid 到达 0xffffffff 时, 表明在当前实例生命周期内无法再分配 dxid 了, 因此系统会 PANIC 重启. 
