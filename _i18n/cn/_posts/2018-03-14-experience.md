@@ -3,6 +3,11 @@ title: 开发经验
 tags: [开发经验]
 ---
 
+## UDP 优化
+
+GSO, GRO; 分别是在 UDP 收发包时所用到的优化. 简单来说 GSO, 就是上层在发包时不用考虑由于 MTU 而拆包的存在, 只需要按照业务需要发送一整块数据即可, 内核会在需要的时候将其拆分为多个数据包发送出去. 而 GRO, 则是相反的操作, 内核会将收到的包尽可能地拼接成一个大块之后通知上层应用. 这里未详细调研, 话说 UDP 作为不可靠协议, 可能会发生乱序, 而且内核是按照包到来顺序拼接, 这个拼接顺序可能不是应用层期望的吧. 参见 [这篇文章](https://blog.cloudflare.com/accelerating-udp-packet-transmission-for-quic/) 介绍, 用了 GSO 之后, 可以将 QUIC 性能提升近 4 倍. 参考 [这篇](http://vger.kernel.org/lpc_net2018_talks/wil lemdebruijn-lpc2018-udpgso-presentation-20181104.pdf) 了解常见的优化操作.
+
+
 ## perf record & perf report
 
 这里介绍一些从 `perf record --help/perf report --help` 中看不到的知识:

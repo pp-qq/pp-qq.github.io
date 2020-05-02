@@ -27,6 +27,25 @@ PlannedStmt::slices, EState::es_sliceTable(SliceTable 类型); GP 在执行阶�
 
 slice DAG; 根据 GP 中目前实现来看, slice 之间并不是简单地 tree 结构, 而是 DAG 结构. 如同 markbit_dep_children() 中注释所示.
 
+## gpbackup 对 plugin config 的处理; 
+
+如果用户在启动 gpbackup 时指定了 plugin config, 那么此时 gpbackup 会将这个 config 分发到集群每一个 host 上 `/tmp/${timestamp}_${PluginConfigFilename}` 上, 这里 PluginConfigFilename 便是 '--plugin-config' 参数表示路径中 base filename 部分. 之后在所有需要使用到 plugin 的地方都会使用 '/tmp/${timestamp}_${PluginConfigFilename}' 作为 plugin config path.
+
+gpbackup 在分发 plugin config 时, 会添加一些 segment specific 内容, 比如 pgport 等; 对于一个机器上只有一个 primary segment 的情况, 这些 segment specific 内容是有意义的. 但对于一个机器上存在多个 primary segment 的情况, 就没啥意义了. 
+
+函数 createHostPluginConfig 负责生成这些 Segment specific 内容, 该函数会将内容写入到一个临时文件中. gpbackup 会对每一个 host 调用该函数生成临时文件之后, 再通过 scp 把本地临时文件上传到 segment host `/tmp/${timestamp}_${PluginConfigFilename}` 上. 
+
+plugin config 现在也会被备份了, 每次备份结束之后都会把当前备份使用的 plugin config 备份到 plugin 中. 函数 GetPluginConfigPath() 用来生成 plugin config 在备份结果中的路径.
+
+## gpbackup 对 object 管理.
+
+在 GP/PG 中, 存在很多类型的 object, 如 function, agg, relation 等. 这些 object 往往具有一些共同的属性. 比如大部分 object 都属于一个 schema, 都有一个对应的 ACL 来表示其权限. gpbackup 试图以一种统一的方式来获取不同类型的 object 的元信息, 元信息包括 ACL, comments 这些.
+
+MetadataQueryParams; 对于一个特定类型的 object, 描述了该**类型**的一些元信息. 字段 CatalogTable 表示着该类型 object 存放在 GP/PG 中哪个系统表中. NameField 记录着 CatalogTable 中哪一列被用来存放该类型 object 的 ObjectName. 参见 InitializeMetadataParams() 函数了解各个类型对应的 MetadataQueryParams.
+
+UniqueID; 用来表示着 object 的唯一标识. ObjectMetadata, 用来存放一个特定 object 的相关元信息取值.
+
+
 
 ## GP 中的执行层
 
