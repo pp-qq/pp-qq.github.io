@@ -12,7 +12,7 @@ tags: ["Postgresql/Greenplum"]
 
 我个人一直感觉对于一个 MPP 数据库而言, 亲自动手实现一个基于 UDP 之上的可靠数据传输协议是一个非常重而且费事不讨好的操作. 再加上我们线上就有时候能碰到由于 interconnect 层问题导致查询不能结束的各种问题. 所以就萌发了使用一个成熟的基于 UDP 实现的可靠数据传输协议来替换 GP udpifc, 最好的情况是能在占用端口与 udpifc 一致的前提下, 性能与可靠性都远超 udpifc. 所以咱就去开始调研了下 QUIC 以及相应的实现了. 
 
-实际上再写这篇文章时, 我已经想到了另外一个法子, 仍然是使用 TCP, 而且每个计算节点占用端口数量仍能为常数值. 以及经过与阿里基础网络架构的同学沟通了下, 与 TCP 相比, QUIC 在公网场景收益比较大. 而且 quicwg 在 [17th Implementation Draft](https://github.com/quicwg/base-drafts/wiki/17th-Implementation-Draft) 中对 QUIC 性能期望值也是基于 QUIC 的 HTTP/3 性能最多比基于 TCP 的 HTTP/2 性能低上 10%. 总之就是说在 MPP 数据库计算节点互联通信这种场景下, QUIC 收益可能不比 TCP. 所以我已经放弃 QUIC 了. 但之前怎么说也看了好久的, 所以就在这里记录一下吧, 说不定哪天能用上呢==
+实际上再写这篇文章时, 我已经想到了[另外一个法子](https://github.com/greenplum-db/gpdb/issues/10048), 仍然是使用 TCP, 而且每个计算节点占用端口数量仍能为常数值. 以及经过与阿里基础网络架构的同学沟通了下, 与 TCP 相比, QUIC 在公网场景收益比较大. 而且 quicwg 在 [17th Implementation Draft](https://github.com/quicwg/base-drafts/wiki/17th-Implementation-Draft) 中对 QUIC 性能期望值也是基于 QUIC 的 HTTP/3 性能最多比基于 TCP 的 HTTP/2 性能低上 10%. 总之就是说在 MPP 数据库计算节点互联通信这种场景下, QUIC 收益可能不比 TCP. 所以我已经放弃 QUIC 了. 但之前怎么说也看了好久的, 所以就在这里记录一下吧, 说不定哪天能用上呢==
 
 ## QUIC 概念
 

@@ -50,7 +50,6 @@ UniqueID; 用来表示着 object 的唯一标识. ObjectMetadata, 用来存放�
 ## GP 中的执行层
 
 
-udpifc, 是 GP interconnect 层, motion 节点将使用 interconnect 能力来完成数据交互. 在 udpifc 中有两个线程, mainthread 即 PostgresMain() 所在线程, 其充当着 sender, receiver 的角色; 另一个是 rx thread, 其负责实际的包收发工作. mainthread 与 rxthread 之间通过 XXX_control_info 这类全局数据结构通信, 如: ic_control_info, rx_control_info 等. 不同的 XXX_control_info 负责完成不同的通信需求, 比如 ic_control_info 偏向于在 mainthread 与 rx thread 传递一些控制信息. 而 rx_control_info 偏向于在 mainthread 与 rx thread 传递 receiver 数据信息, 我理解应该是 rx thread 收到数据包, 解码之后放入 rx_control_info 中, 供 mainthread 读取. 函数 InitMotionUDPIFC() 会在 QD/QE backend 启动时调用, 其负责 XXX_control_info 这类全局数据结构的初始化, udp listener socket 的创建, rx thread 的启动等工作. 对于 QE 来说, 其 udp listener port 会通过 qe_listener_port parameter 返回给 QD, 参见 cdbconn_get_motion_listener_port() 函数实现.
 
 CdbComponentDatabases 生命周期管理; 很显然, 我们需要在一个事务内看到一致的 CdbComponentDatabases 信息. 也即每次在事务开始时, 都应该读取 gp_segment_configuration 构造出最新的 CdbComponentDatabases, 之后在同一事务内, CdbComponentDatabases 结构保持不变. 另外考虑到 gp_segment_configuration 实际上变更地频次应该是非常低的, 一般仅当用户使用了 gpexpand 加入了新计算节点或者发生了 primary segment 失效事件使得 FTS 进行过 primary/mirror 切换时, gp_segment_configuration 才会变更. 因此 GP 中每个 backend 都会将获取到的 CdbComponentDatabases 信息保存到全局变量 cdb_component_dbs 中, 并通过 CdbComponentDatabases::fts_version/CdbComponentDatabases::expand_version 来标识着当前 CdbComponentDatabases 信息的版本. 之后在新事务开启时, 通过 expand_version/fts_version 字段来判断 gp_segment_configuration 有没有发生过变更, 若没有, 则此时继续使用上次获取到的 CdbComponentDatabases 信息. 若发生过变更, 则此时会清除上次获取的信息, 重新读取 gp_segment_configuration 获取到最新的信息. 函数 cdbcomponent_updateCdbComponents() 会在每次事务启动时调用, 用来在必要时更新 cdb_component_dbs 中保存的 CdbComponentDatabases 信息. 函数 cdbcomponent_getCdbComponents() 用来在事务期间内调用, 获取 cdb_component_dbs 中保存到的信息.
 
@@ -67,6 +66,9 @@ cdbconn_doConnectComplete() 会在连接建立完成之后调用, 此时会获�
 
 在 QE 的建链中, 若由于 primary segment 进入了 recovery mode 等而导致的建链失败, GP 会在 cdbgang_createGang_async() 函数中进行重试.
 
+### udpifc interconnect 
+
+udpifc, 是 GP interconnect 层, motion 节点将使用 interconnect 能力来完成数据交互. 在 udpifc 中有两个线程, mainthread 即 PostgresMain() 所在线程, 其充当着 sender, receiver 的角色; 另一个是 rx thread, 其负责实际的包收发工作. mainthread 与 rxthread 之间通过 XXX_control_info 这类全局数据结构通信, 如: ic_control_info, rx_control_info 等. 不同的 XXX_control_info 负责完成不同的通信需求, 比如 ic_control_info 偏向于在 mainthread 与 rx thread 传递一些控制信息. 而 rx_control_info 偏向于在 mainthread 与 rx thread 传递 receiver 数据信息, 我理解应该是 rx thread 收到数据包, 解码之后放入 rx_control_info 中, 供 mainthread 读取. 函数 InitMotionUDPIFC() 会在 QD/QE backend 启动时调用, 其负责 XXX_control_info 这类全局数据结构的初始化, udp listener socket 的创建, rx thread 的启动等工作. 对于 QE 来说, 其 udp listener port 会通过 qe_listener_port parameter 返回给 QD, 参见 cdbconn_get_motion_listener_port() 函数实现.
 
 Motion 中的数据编码. 简单来说, 每一行数据在序列化之后都会加入个 TupSerHeader 首部, 之后再按照指定大小拆分为多个 chunk, 每个 chunk 再加个 chunk header 之后发送出去. 这里 chunk header 共 4 字节: 前 2 byte 存放着 chunk data size, 去掉 header 之后. 后 2byte 存放着 chunk type. 这里若 chunk type 为:
 
@@ -77,6 +79,10 @@ TupSerHeader; TupSerHeader 后面跟随的内容可能是一行序列化后的�
 数据内容, 这里数据内容采取与行在 heap file 中一样的编码.
 
 Motion sender; GP 中 motion send 有两种方法: direct send, SendChunk; direct send 是指 motion 将待发送的行直接序列化到 MotionConn::pBuff 中, 等待后台线程发送. SendChunk 则是 motion 将待发送的行序列化后存放在 TupleChunkList 中, 然后调用 SendTupleChunkToAMS() 来发送. GP 会优先使用 direct send, 当无法使用 direct send, 比如当 boardcase motion 或者 pBuff 指向空间不足时, 便会使用 send chunk 这一方法.
+
+packet;
+
+udpifc 收发包;
 
 ## SharedSnapshot
 
