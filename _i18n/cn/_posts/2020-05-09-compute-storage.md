@@ -28,18 +28,16 @@ segmentexpand=# explain select * from localtable t1 inner join foreigntable t2 o
 这里 localtable 是本地 heap 表, 以列 col1 作为分布列. foreigntable 则是一个 foreign table. 上述查询计划如下图所示:
 
 {% mermaid %}
-
-graph TD
-    subgraph "slice1 (gangsize: 3)"
-    FS(ForeignScan) --> |t2.col1| RM(RedistributeMotion 3:3)
-    end
-    subgraph "slice2 (gangsize: 3)"
-    RM --> H[Hash]
-    SS[SeqScan] --> HJ[HashJoin]
-    H --> HJ
-    HJ --> GM[GatherMotion]
-    end
-
+graph TD;
+    subgraph "slice1 (gangsize: 3)";
+    FS(ForeignScan) --> |t2.col1| RM(RedistributeMotion 3:3);
+    end;
+    subgraph "slice2 (gangsize: 3)";
+    RM --> H[Hash];
+    SS[SeqScan] --> HJ[HashJoin];
+    H --> HJ;
+    HJ --> GM[GatherMotion];
+    end;
 {% endmermaid %}
 
 
@@ -50,18 +48,16 @@ graph TD
 但其实这并没有必要限制 slice1 只能有三个 QE. slice1 并没有涉及到本地数据的访问, 他是一个纯计算性质的 slice, 因此我们并不必要限制 slice 对应 QE 的数目. 扩展来说, 对于执行计划中纯计算任务的 slice, 我们并没必要限制 slice QE 数目为集群中 primary segment 数目. 如下在我对 GP 优化器/执行器进行一番魔改之后:
 
 {% mermaid %}
-
-graph TD
-    subgraph "slice1 (gangsize: 6)"
-    FS(ForeignScan) --> |t2.col1| RM(RedistributeMotion 6:3)
-    end
-    subgraph "slice2 (gangsize: 3)"
-    RM --> H[Hash]
-    SS[SeqScan] --> HJ[HashJoin]
-    H --> HJ
-    HJ --> GM[GatherMotion]
-    end
-
+graph TD;
+    subgraph slice1;
+    FS(ForeignScan) --> |t2.col1| RM(RedistributeMotion 6:3);
+    end;
+    subgraph slice2;
+    RM --> H[Hash];
+    SS[SeqScan] --> HJ[HashJoin];
+    H --> HJ;
+    HJ --> GM[GatherMotion];
+    end;
 {% endmermaid %}
 
 
