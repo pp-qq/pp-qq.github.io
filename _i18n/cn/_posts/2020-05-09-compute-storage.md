@@ -49,10 +49,10 @@ graph TD;
 
 {% mermaid %}
 graph TD;
-    subgraph slice1;
+    subgraph "slice1 (gangsize: 6)";
     FS(ForeignScan) --> |t2.col1| RM(RedistributeMotion 6:3);
     end;
-    subgraph slice2;
+    subgraph "slice2 (gangsize: 3)";
     RM --> H[Hash];
     SS[SeqScan] --> HJ[HashJoin];
     H --> HJ;
