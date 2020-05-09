@@ -19,6 +19,8 @@ plan slice; GP 会将查询切分为多个 slice, 简单来说 GP 会遍历 plan
 
 在 PlannedStmt::slices 数组中, parent slice 总是先于 child slice 存放, 这主要是采用了自顶向下的 plantree 遍历姿势. root slice, motion slice. root slice 就是位于 slice tree 根节点的 slice. motion slice 就是除 root slice 之外的所有 slice.
 
+GANGTYPE_PRIMARY_WRITER slice 的 parent 一定不可能是 GANGTYPE_PRIMARY_READER slice. 假设某个 slice tree 中某个 writer slice 其 parent slice 是 reader, 那么在 InventorySliceTree() 时便会先 AssignGang(reader slice), 再 AssignGang(write slice). 在 AssignGang(reader) 过程中, 如果当前没有 idle qe, active qe 那么会创建 writer QE. 此时使得 AssignGang(write slice) 时创建的 QE 是 reader 的, 很显然这不太对.
+
 PlanSlice, ExecSlice, SliceVec; GP 在优化阶段使用 PlanSlice 来表示着一个 slice. 在执行阶段使用 ExecSlice 来表示一个 slice. GP 会在执行开始阶段将 plan slice 转换为 exec slice, InitSliceTable() 函数用来完成这一工作. 除 PlanSlice 内容之外, ExecSlice 也存放着 Slice 相关执行时信息, 比如 slice 对应着的 gang 等. SliceVec, 每个 ExecSlice 都对应着一个 SliceVec, fillSliceVector() 函数负责为每个 ExecSlice 构造对应的 SliceVec. 关于 SliceVec 的语义, 参考 fillSliceVector() 函数, 我理解用于是用于决定 slice dispatch 顺序的.
 
 PlannedStmt::slices, EState::es_sliceTable(SliceTable 类型); GP 在执行阶段使用 EState::es_sliceTable 来存放着所有 slice 信息. 最基本的比如存放着所有 ExecSlice. 函数 InitSliceTable 会在 executor start 阶段调用, 完成 EState::es_sliceTable 的构造与初始化.
@@ -27,7 +29,19 @@ PlannedStmt::slices, EState::es_sliceTable(SliceTable 类型); GP 在执行阶�
 
 slice DAG; 根据 GP 中目前实现来看, slice 之间并不是简单地 tree 结构, 而是 DAG 结构. 如同 markbit_dep_children() 中注释所示.
 
-## gpbackup 对 plugin config 的处理; 
+## gpbackup
+
+### gpbackup 对 object 管理.
+
+在 GP/PG 中, 存在很多类型的 object, 如 function, agg, relation 等. 这些 object 往往具有一些共同的属性. 比如大部分 object 都属于一个 schema, 都有一个对应的 ACL 来表示其权限. gpbackup 试图以一种统一的方式来获取不同类型的 object 的元信息, 元信息包括 ACL, comments 这些.
+
+MetadataQueryParams; 对于一个特定类型的 object, 描述了该**类型**的一些元信息. 字段 CatalogTable 表示着该类型 object 存放在 GP/PG 中哪个系统表中. NameField 记录着 CatalogTable 中哪一列被用来存放该类型 object 的 ObjectName. 参见 InitializeMetadataParams() 函数了解各个类型对应的 MetadataQueryParams.
+
+UniqueID; 用来表示着 object 的唯一标识. ObjectMetadata, 用来存放一个特定 object 的相关元信息取值.
+
+### storage plugin
+
+gpbackup storage plugin; gpbackup 将 storage plugin 后端存储视为 KV 结构, 其中 key 为 local path, 即备份文件在本地文件系统的完整路径, value 为该备份文件在远端存储的信息. gpbackup 并不关心备份文件在远端怎么存储, 他只关心当把 localpath 上传到 storage plugin 之后再也同样的 localpath 下载时可以把文件内容原样地下载下来. gpbackup 在备份时会按照一个特定的规则来生成备份文件对应的路径. 在 restore 时会应用同样的规则来生成相同的路径. 这个规则根据备份文件的类型对应着不同的规则, 可参考 GetSegmentPipeFilePath() 了解. 简单来说, 对于一个特定的库, 其一次备份生成的文件都位于目录 `${UserBakDir}/${SegPrefix}${SegContentId}/backups/${BakDate}/${BakTimestamp}` 中, 在该目录下并不会存在子目录, 只会有若干备份文件.
 
 如果用户在启动 gpbackup 时指定了 plugin config, 那么此时 gpbackup 会将这个 config 分发到集群每一个 host 上 `/tmp/${timestamp}_${PluginConfigFilename}` 上, 这里 PluginConfigFilename 便是 '--plugin-config' 参数表示路径中 base filename 部分. 之后在所有需要使用到 plugin 的地方都会使用 '/tmp/${timestamp}_${PluginConfigFilename}' 作为 plugin config path.
 
@@ -36,16 +50,6 @@ gpbackup 在分发 plugin config 时, 会添加一些 segment specific 内容, �
 函数 createHostPluginConfig 负责生成这些 Segment specific 内容, 该函数会将内容写入到一个临时文件中. gpbackup 会对每一个 host 调用该函数生成临时文件之后, 再通过 scp 把本地临时文件上传到 segment host `/tmp/${timestamp}_${PluginConfigFilename}` 上. 
 
 plugin config 现在也会被备份了, 每次备份结束之后都会把当前备份使用的 plugin config 备份到 plugin 中. 函数 GetPluginConfigPath() 用来生成 plugin config 在备份结果中的路径.
-
-## gpbackup 对 object 管理.
-
-在 GP/PG 中, 存在很多类型的 object, 如 function, agg, relation 等. 这些 object 往往具有一些共同的属性. 比如大部分 object 都属于一个 schema, 都有一个对应的 ACL 来表示其权限. gpbackup 试图以一种统一的方式来获取不同类型的 object 的元信息, 元信息包括 ACL, comments 这些.
-
-MetadataQueryParams; 对于一个特定类型的 object, 描述了该**类型**的一些元信息. 字段 CatalogTable 表示着该类型 object 存放在 GP/PG 中哪个系统表中. NameField 记录着 CatalogTable 中哪一列被用来存放该类型 object 的 ObjectName. 参见 InitializeMetadataParams() 函数了解各个类型对应的 MetadataQueryParams.
-
-UniqueID; 用来表示着 object 的唯一标识. ObjectMetadata, 用来存放一个特定 object 的相关元信息取值.
-
-
 
 ## GP 中的执行层
 
@@ -66,6 +70,8 @@ cdbconn_doConnectComplete() 会在连接建立完成之后调用, 此时会获�
 
 在 QE 的建链中, 若由于 primary segment 进入了 recovery mode 等而导致的建链失败, GP 会在 cdbgang_createGang_async() 函数中进行重试.
 
+这里 QD 通过 libpq 建立到 QE 的链接只负责控制信息的传递, 不会传输数据. 如果 QD 运行的 slice 存在 motion 节点, 那么此时 QD 也是通过 interconnect 执行 motion, 即 motion 节点的执行在 QD/QE 上没有区别.
+
 ### udpifc interconnect 
 
 udpifc, 是 GP interconnect 层, motion 节点将使用 interconnect 能力来完成数据交互. 在 udpifc 中有两个线程, mainthread 即 PostgresMain() 所在线程, 其充当着 sender, receiver 的角色; 另一个是 rx thread, 其负责实际的包收发工作. mainthread 与 rxthread 之间通过 XXX_control_info 这类全局数据结构通信, 如: ic_control_info, rx_control_info 等. 不同的 XXX_control_info 负责完成不同的通信需求, 比如 ic_control_info 偏向于在 mainthread 与 rx thread 传递一些控制信息. 而 rx_control_info 偏向于在 mainthread 与 rx thread 传递 receiver 数据信息, 我理解应该是 rx thread 收到数据包, 解码之后放入 rx_control_info 中, 供 mainthread 读取. 函数 InitMotionUDPIFC() 会在 QD/QE backend 启动时调用, 其负责 XXX_control_info 这类全局数据结构的初始化, udp listener socket 的创建, rx thread 的启动等工作. 对于 QE 来说, 其 udp listener port 会通过 qe_listener_port parameter 返回给 QD, 参见 cdbconn_get_motion_listener_port() 函数实现.
@@ -78,11 +84,15 @@ Motion 中的数据编码. 简单来说, 每一行数据在序列化之后都会
 TupSerHeader; TupSerHeader 后面跟随的内容可能是一行序列化后的结果也可能是 list<TupleDescNode> 序列化的结果, 可根据 TupSerHeader::natts/TupSerHeader::infomask 字段取值来判断 TupSerHeader 后面跟着的内容. 若 TupSerHeader 后面跟着一行序列化后的结果, 则此时具体编码格式参见 SerializeTuple() 实现, 简单来说依次存放着 nullbits 与
 数据内容, 这里数据内容采取与行在 heap file 中一样的编码.
 
-Motion sender; GP 中 motion send 有两种方法: direct send, SendChunk; direct send 是指 motion 将待发送的行直接序列化到 MotionConn::pBuff 中, 等待后台线程发送. SendChunk 则是 motion 将待发送的行序列化后存放在 TupleChunkList 中, 然后调用 SendTupleChunkToAMS() 来发送. GP 会优先使用 direct send, 当无法使用 direct send, 比如当 boardcase motion 或者 pBuff 指向空间不足时, 便会使用 send chunk 这一方法.
+udpifc packet; 在 udpifc 中, 所有待发送的内容总会是拼接成 packet 发送出去, 在拼接后的 packet 中, 总是以 icpkthdr 为首部, icpkthdr 类似于 QUIC 中的 dest connection id, 用来告诉接收端当前 packet 应该被送往哪个 MotionConn. packet size 最大为 gp_max_packet_size. packet 内存放着若干 chunk, 目前看来一个 chunk 不会跨 udp packet, 所以表明 chunk 最大长度的 Gp_max_tuple_chunk_size 总是小于 gp_max_packet_size. 这里 packet 的概念与 QUIC 中 packet 概念很是相似, GP udpifc 中每一个 packet 也各有一个 seq, 基于此来实现了 packet 的 ACK, 重传, 以及可靠的数据传输.
 
-packet;
+Motion sender, udpifc 发包; GP 中 motion send 有两种方法: direct send, SendChunk; direct send 是指 motion 将待发送的行直接序列化到 MotionConn::pBuff 中, 等待后续 SendChunk 方法被使用时发送. SendChunk 则是 motion 将待发送的行序列化后存放在 TupleChunkList 中, 然后调用 SendTupleChunkToAMS() 来发送, SendTupleChunkToAMS() 最终会调用 SendChunkUDPIFC() 来完成发包工作. SendChunkUDPIFC() 简单来说便是将接受到的 chunk 拷贝到 MotionConn::pBuff 中, 当 pBuff 空间不足时, 将 pBuff 拼接成 packet 发送出去. GP 会优先使用 direct send, 当无法使用 direct send, 比如当 boardcase motion 或者 pBuff 指向空间不足时, 便会使用 send chunk 这一方法. SendChunkUDPIFC() 在发送 packet 时, 使用 ICSenderSocket 这个套接字: `sendto(ICSenderSocket, data, receiver_ip_port)`.
 
-udpifc 收发包;
+udpifc 收包; 在 udpifc 中, 当当前 QE 是个 receiver QE 时, 其会启动线程 rx thread, 由该线程来接受 sender QE 发来的数据, 并 ACK 这些数据, 之后 rx thread 会把这些数据放在对应的 MotionConn 中, 递交给 main thread 来消费. 该线程入口函数 rxThreadFunc(). rxThreadFunc() 逻辑简单来说便是不停地 poll(UDP_listenerFd), 在 poll() 表明有数据到来时, 调用 recvfrom(UDP_listenerFd) 读取一个 packet, 之后生成相应的 ACK packet 并返回给 sender QE.
+
+### tcp interconnect
+
+tcp interconnect, 考虑到 tcp 自身已经是一个可靠数据传输协议, 所以 GP 中 tcp interconnect 实现比较清晰明了. 在 tcp interconnect 中, 每个 QE 在启动时会随机监听一个端口, 即 TCP_listenerFd. 之后 sender 在执行 execMotionSender() 时, 最终会调用 SendChunkTCP() 来完成一个 chunk 的发送. 这个过程简单来说 sender QE 会 connect receiver QE listener port, 之后通过这个 tcp 连接完成数据的传输. 参见 [issue10048](https://github.com/greenplum-db/gpdb/issues/10048) 这里可以使用 SO_REUSEPORT 来降低端口的使用.
 
 ## SharedSnapshot
 

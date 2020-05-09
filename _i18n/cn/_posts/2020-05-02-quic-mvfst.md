@@ -14,7 +14,7 @@ tags: ["Postgresql/Greenplum"]
 
 实际上再写这篇文章时, 我已经想到了[另外一个法子](https://github.com/greenplum-db/gpdb/issues/10048), 仍然是使用 TCP, 而且每个计算节点占用端口数量仍能为常数值. 以及经过与阿里基础网络架构的同学沟通了下, 与 TCP 相比, QUIC 在公网场景收益比较大. 而且 quicwg 在 [17th Implementation Draft](https://github.com/quicwg/base-drafts/wiki/17th-Implementation-Draft) 中对 QUIC 性能期望值也是基于 QUIC 的 HTTP/3 性能最多比基于 TCP 的 HTTP/2 性能低上 10%. 总之就是说在 MPP 数据库计算节点互联通信这种场景下, QUIC 收益可能不比 TCP. 所以我已经放弃 QUIC 了. 但之前怎么说也看了好久的, 所以就在这里记录一下吧, 说不定哪天能用上呢==
 
-(20200505补充)不幸的是, 经过使用 TCP 与 UDP 性能实测, 以及与 greenplum 社区人员的沟通, 最初 greenplum 选择使用 UDP 的原因主要还是因为性能原因, 也即 UDP 性能表现强于 TCP. 所以找时间还是要把 QUIC 集成到 GP 之中看看效果. 到时候估计还得向阿里基础网络的同学请教下 QUIC plaintext handsnake 问题, 毕竟我们这种场景并不需要 QUIC TLS handsnake.
+(20200505补充)不幸的是, 经过使用 TCP 与 UDP 性能实测, 以及与 greenplum 社区人员的沟通, 最初 greenplum 选择使用 UDP 的原因主要还是因为性能原因, 也即 UDP 性能表现强于 TCP. 所以找时间还是要把 QUIC 集成到 GP 之中看看效果. 另外与 GP 社区人员沟通, GP 社区内部也有将 QUIC 集成 Greenplum 的打算. 有时间再交流下. 另外到时候估计还得向阿里基础网络的同学请教下 QUIC plaintext handsnake 问题, 毕竟我们这种场景并不需要 QUIC TLS handsnake.
 
 ## QUIC 概念
 
