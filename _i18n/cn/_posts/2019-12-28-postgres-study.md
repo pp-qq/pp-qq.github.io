@@ -15,7 +15,7 @@ GP 与 presto 的分布式执行框架完全类似. 在 [presto 文档](https://
 ## GP 中的 slice
 
 
-plan slice; GP 会将查询切分为多个 slice, 简单来说 GP 会遍历 plantree, 每遇到一个 motion 节点便创建一个 slice, slice 之间呈现出树的结构. GP 会将查询中所有 slice 都放在一个数组中, 之后通过 slice 在数组的下标来标识着 slice, 即任何需要 slice 的地方都用 slice 下标来标识. GP 会在优化过程的最后阶段通过 cdbllize_build_slice_table 函数来收集 plan tree 中所有 slice. 在执行阶段, 所有 slice 都存放在 PlannedStmt::slices 指向的数组中. 这里 slice 下标从 0 开始.
+plan slice; GP 会将查询切分为多个 slice, 简单来说 GP 会遍历 plantree, 每遇到一个 motion 节点便创建一个 slice, slice 之间呈现出树的结构. GP 会将查询中所有 slice 都放在一个数组中, 之后通过 slice 在数组的下标来标识着 slice, 即任何需要 slice 的地方都用 slice 下标来标识. GP 会在优化过程的最后阶段通过 cdbllize_build_slice_table 函数来收集 plan tree 中所有 slice. 在执行阶段, 所有 slice 都存放在 PlannedStmt::slices 指向的数组中. 这里 slice 下标从 0 开始. PlanSlice 会在 create_motion_plan() 时创建, 并根据 motion 以及 subpath 的信息来填充 PlanSlice 各个字段, 参考 create_motion_plan() 实现了解细节.
 
 在 PlannedStmt::slices 数组中, parent slice 总是先于 child slice 存放, 这主要是采用了自顶向下的 plantree 遍历姿势. root slice, motion slice. root slice 就是位于 slice tree 根节点的 slice. motion slice 就是除 root slice 之外的所有 slice.
 
