@@ -3,6 +3,7 @@ title: 开发经验
 tags: [开发经验]
 ---
 
+
 ## UDP 优化
 
 GRO/GSO 优化, 参见 [UDP 与 GRO, GSO]({{site.url}}/2020/05/04/udp-gro-gso/)) 了解.
@@ -21,7 +22,7 @@ funcA
     0.25 funcC
 ```
 
-`perf report -g` 后可以指定额外的参数(即 type)来控制具体展示效果. 
+`perf report -g` 后可以指定额外的参数(即 type)来控制具体展示效果.
 
 -   flat; 表明平铺地形式展示. 我理解应该是把 funcA, funcB, funcC 放在同一级别下:
 
@@ -43,7 +44,7 @@ funcA
 
 ## Linux 中的 hostname
 
-在 Linux 中与机器相关的 name 有: hostname, domainname, nodename. 
+在 Linux 中与机器相关的 name 有: hostname, domainname, nodename.
 
 其中 hostname 记录着 the name of the current host, 按我理解, 内核本身并不关心这个取值如何, 只是提供个机制(或者缓冲区)让用户根据需要自定义这个 name, 就像是 windows/macOS 提供的机器名机制一样. hostname 的设置与获取由系统调用 [gethostname()/sethostname()](http://man7.org/linux/man-pages/man2/sethostname.2.html) 完成, 对应着用户命令是 [hostname](http://man7.org/linux/man-pages/man1/hostname.1.html). 在机器启动时, 内核(或者其他组件)会将 `/etc/hostname` 文件内容设置为 hostname. 这个字段在 proc 文件系统中对应着 `/proc/sys/kernel/hostname`. 在 hostname 更改之后, 最好同时改一下 `/etc/hosts` 文件使得 `ping ${hostname}` 这种命令可以正常地将新改后的 hostname 解析为 127.0.0.1
 
@@ -71,7 +72,7 @@ int main() {
 然后观察其中使用的符号:
 
 ```
-(gdb) disassemble main 
+(gdb) disassemble main
 Dump of assembler code for function main:
    0x0000000000400587 <+0>:	push   rbp
    0x0000000000400588 <+1>:	mov    rbp,rsp
@@ -86,8 +87,8 @@ Dump of assembler code for function main:
    0x00000000004005ba <+51>:	movq   rax,xmm0
    0x00000000004005bf <+56>:	mov    QWORD PTR [rbp-0x8],rax
    0x00000000004005c3 <+60>:	mov    eax,0x0
-   0x00000000004005c8 <+65>:	leave  
-   0x00000000004005c9 <+66>:	ret    
+   0x00000000004005c8 <+65>:	leave
+   0x00000000004005c9 <+66>:	ret
 End of assembler dump.
 ```
 
@@ -123,7 +124,7 @@ The GDB use [ptrace](http://man7.org/linux/man-pages/man2/ptrace.2.html) system 
 ```
 # output of `strace -p `pidof gdb``
 ptrace(PTRACE_PEEKTEXT, 45391, 0x400648, [0x2009ff058be58948]) = 0
-ptrace(PTRACE_POKEDATA, 45391, 0x400648, 0x2009ff05cce58948) = 0 
+ptrace(PTRACE_POKEDATA, 45391, 0x400648, 0x2009ff05cce58948) = 0
 ```
 
 the first call of ptrace(PTRACE_PEEKTEXT) to get origin instruction content and GDB will save it in a list to restore the instruction content of process when gdb exits, or to find which breakpoint is hit when GDB receives a SIGCHLD signal(si_status=SIGTRAP). The ptrace(PTRACE_POKEDATA) call change the instruction content to 'int3'(0xCC). After this, when the execution of process attached by gdb reaches the 'int3' instruction, kernel will send the process a SIGTRAP signal, which would stop the process(the default behavior), then kernel will send GDB a SIGCHLD signal which tells GDB the process is stopped by SIGTRAP, then GDB will know that the process hits a breakpoint.
@@ -170,7 +171,7 @@ ptrace(PTRACE_POKEDATA, 54586, 0x7f0cf77344c0, 0x20db9f3d8390ff) = 0 <0.000029>
 So if we use GDB in the production environment, and GDB exits unexpectedly without restore instruction content from int3(0xCC) to their original content, the process attached by GDB will be terminate by SIGTRAP signal when the execution of process reaches a breakpoint. The unexpected exit of GDB had happened many times in my environment when I debug a Postgres backend, and then the Postmaster will enter recovery mode because the backend was killed by Trace/breakpoint trap(SIGTRAP signal), just like this:
 
 ```
-$./a.out 
+$./a.out
 hidva.com
 f(): 0
 f(): 1
@@ -211,7 +212,7 @@ SETCMDTEMP = 'ssh %s $\'su -l gp%s -c $\\\'GDDPID=`ps -u gp%s -o pid,cmd | grep 
 ## 使用 ssh 远程执行命令
 
 ssh manual 手册可是明说了: If command is specified, it is executed on the remote host instead of a login shell. 也即此时 ssh 并不会创建一个 login shell 来执行 command, 因此像 `~/.bashrc`, `~/.bash_profile` 中的用户级别环境初始化操作也都不会执行了. 就是这个导致我纠缠在为啥我的 gpinitsytem 一直失败半天之久.
-  
+
 ## Shared Everything, Shared Nothing 究竟是什么
 
 Shared *; 是指分布式系统中实例之间共享资源的情况, 从而也说明了实例之间可能会存在的资源争抢程度, 这里的资源一般是指 CPU, IO, 内存等. shared nothing 表明该系统中实例之间未共享任何资源, 比如当实例部署在不同的节点上时. shared everything 表明实例之间共享了一切资源, 比如当实例部署在同一节点并且未在任何隔离时. 还有一种情况是 shared disk, 是指实例之间使用自己的私有 CPU 和 Memory, 共享存储系统, 现在火热的存储计算分离就是这种情况.
@@ -383,3 +384,17 @@ if unshared <= 0 {
 ```
 
 如果 go 在 index expression 时未进行下标范围检测, 那么由于溢出的存在, `k_end` 可能是个负值, 导致在 `this.data[offset:k_end]` 时会访问到非法内存.
+
+
+## 处处是热点, 处处不是瓶颈
+
+这个是之前百度大佬戈君说过的:
+
+> 我们团队里有个老梗：“处处是热点，处处不是瓶颈”。这说的是如果整个程序写的都很粗暴，不考虑性能，最后用profiler一跑，发现每个点都只有1%，2%，然后得出结论，“性能非常好，优化空间已经不大”。但实际上你去分析下hot path，会发现有太多可以大幅提高的点了。性能就是这样，设计确保了流程是最优化的，但实现也非常重要，细节全靠抠。brpc上关键路径上的代码多一次new都需要讨论，最热的路径上甚至不允许出现申明一个可能无用的空std::string，因为老版本glibc中的空string是要加引用计数的，对cache有影响
+
+挺有道理.
+
+
+## TPCH
+
+关于 TPCH 规范官网有一大堆, 如果我们不是像认真地跑一遍 tpch 的话, 是不需要细究这里文档的. 如果我们只是想简单跑下 tpch 验证下性能的话, 只需要用 `dbgen -s` 与 `qgen -s` 生成指定比例的数据与查询即可. 

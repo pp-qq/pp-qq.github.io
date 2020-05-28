@@ -1,6 +1,10 @@
 该篇文章记录了关于某个特定 topic 的学习总结. 只是还不成熟以至于无法为他们建立单独的文章来描述, 所以暂时就塞这里吧. ~~等今后有空时再拿出来完善然后丢进他们该去的位置去~~.
 
 
+## 如何打印日志
+
+https://mp.weixin.qq.com/s/ChPGFVnfEXpXcAfM5LjlRA
+
 ## SQL 中的条件(谓词)下推
 
 按我理解, SQL 中的条件(谓词)下推应该是指将 SELECT 语句中 where 子句包含的条件中, 将直接作用在列本身的谓词提取出来, 并汇聚在一起下推给存储层. 存储层在取数据时会应用这些条件, 仅返回符合条件的数据, 这样可以减少返回的数据量. 计算层会在存储层返回的数据之上再应用 where 子句中包含的其他条件, 进一步筛选满足条件的行. 如用户输入 SQL `SELECT * FROM table WHERE col=1 and LENGTH(col2) = 2`, 那么查询引擎可能会先给存储层下发个 `SELECT * FROM table WHERE col = 1`, 然后查询引擎再在存储层返回的数据上再应用 `LENGTH(col2) = 2` 这一条件进一步筛选.
@@ -27,3 +31,4 @@ com.docke 35379 zhanyi.ww   26u  IPv4 0xaf9e525421d84e2d      0t0  TCP *:22224 (
 com.docke 35379 zhanyi.ww   28u  IPv4 0xaf9e52540d95112d      0t0  TCP *:22223 (LISTEN)
 com.docke 35379 zhanyi.ww   30u  IPv4 0xaf9e525413d81aad      0t0  TCP *:22222 (LISTEN)
 ```
+
