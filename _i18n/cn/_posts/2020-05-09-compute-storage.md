@@ -95,4 +95,15 @@ graph TD;
 
 5.	在 ExecResult() 中, 调整 TupleMatchesHashFilter() 函数中 GpIdentity.segindex 为 QEIDInSlice.
 6.	getChunkSorterEntry(), EndMotionLayerNode() 中, 将 getgpsegmentCount() 替换为 num_senders. 因为此时 sender slice QE 的数目并不一定是 getgpsegmentCount() 了.
-7.	(可选)调整下 ic_htab_size. 原取值为  `getgpsegmentCount() * 2`, 替换为 `getgpsegmentCount() * segment_expand * 2`.
+
+7.	slot_set_ctid_from_fake() 行为调整. 在 GP 之中, 对于本地表, 可使用 gp_segment_id, ctid 组合来唯一的标识表的一行数据. 某些情况下 GP 会利用这个特性来优化查询, 以 TPCH Q04 为例, 此时生成的执行计划片段如下所示:
+
+![TPCH-Q04 的执行计划图](x)
+
+可以看到这里首先使用 1 个普通的 hash inner join, 然后再根据 (oss_orders.gp_segment_id, oss_orders.ctid) sort unique 过滤掉 inner join 之后 oss_orders 重复的行. 之后再次基础上执行两阶段的 hash agg 最终得到结果.
+
+对于外表, 或者某些中间 query 的结果, 这些结果中行并没有实际的 ctid 字段, 此时 GP 会为这些行生成一个 fake ctid, 用于唯一标识每一行, 这里生成的规则是, 在一次 scan 过程中, 每一个结果行都具有一个唯一的 ctid. 具体实现则是 gp 维护着一个累加值, 每次 slot_set_ctid_from_fake() 被调用请求 ctid 时, gp 便会自增累加值, 同时根据累加值生成一个 fake ctid.
+
+考虑到在并行情况下, 一个 primary segment 下可能会有多个位于同一 slice 的 QE, 如果不对 slot_set_ctid_from_fake 的行为做适配, 会导致这两个 QE 吐出的行可能会赋到同样的 ctid, 导致上层算子认为是同一行. 
+
+8.	(可选)调整下 ic_htab_size. 原取值为  `getgpsegmentCount() * 2`, 替换为 `getgpsegmentCount() * segment_expand * 2`.

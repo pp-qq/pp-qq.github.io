@@ -6,6 +6,40 @@ tags: ["Postgresql/Greenplum"]
 
 这里记录着对 Postgresql/Greenplum 代码学习期间总结记录的一些东西, 这些东西大多篇幅较小(或者质量不高...), 以至于不需要强开一篇 POST. 若不特殊说明, 本节内容来源于 PG9.6 文档 + PG 9.6 的代码. 或者 GP 6.4 文档 + GP master 代码, 具体 commit id: 53d12bd56fd124fa1b0bcd0d72ff7cf69f0bd441.
 
+## PG 中的 numeric
+
+PG 中的 numeric 认为任何浮点数都可以写成
+
+$$
+(-1)^S \times 10000 ^ {-E} \times C
+$$
+
+以 2018121811.45 为例, 对应的 S, E, C 分别是 0, -1, 20181218114500; 之后在存放着时, 对于 C, PG 会将每 4 个数字放在一个 int16 类型中. 如下所示:
+
+```c
+(gdb) ptype var
+type = struct NumericVar {
+    int ndigits;  
+    int weight;
+    int sign;
+    int dscale;
+    NumericDigit *buf;  // 可忽略
+    NumericDigit *digits;
+} *
+(gdb) p *var
+$2 = {ndigits = 4, weight = 2, sign = 0, dscale = 2, buf = 0x0, digits = 0x625000058f4e}
+(gdb) x/4dh  0x625000058f4e
+0x625000058f4e:	20	1812	1811	4500
+```
+
+这里 NumericVar::ndigits 记录着 C 中共有多少 digit, 注意这里 digit 是在 10000 进制下的数字. `weight + 1` 记录着小数点前 digit 的个数. sign 则是符号位. digits 则是 int16 数组, 存放着所有数字.
+
+在这种编码下, numeric 的运算也便比较直观了, 以加法为例, 简单来说就是将两个操作数的 digits 部分从最低位依次相加, 当然需要考虑到进位的情况. 
+
+## PG 中的随机数
+
+PG 中每个 backend 在启动时会 srandom(), 之后程序中只需要使用 random() 来生成随机数即可.
+
 ## elog(ERROR) 与 C++
 
 在使用 C++ 编写 PostgreSQL 特定模块时, 需要注意 PG 的某些基础设施并不能与 C++ 很好地契合在一起. 比如 elog(ERROR) 就与 C++ 自身的 stack unwinding 冲突, 也即我们不应该在任何 C++ 代码路径中使用 elog(ERROR).
