@@ -1020,3 +1020,8 @@ parname           | usa
   "Setting": {}
 }
 ```
+
+## PG catalog 不遵循 MVCC
+
+准确来说应该是 PG 中根据 catalog name 找到对应的 oid 这一步并不是 MVCC, 准确来说这一步总是使用 SnapshotNow.
+
