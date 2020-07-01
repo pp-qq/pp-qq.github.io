@@ -1,6 +1,5 @@
 ---
 title: "Git-科学地书写 commit message"
-hidden: false
 tags: [Git, 读后感]
 ---
 
