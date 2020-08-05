@@ -33,7 +33,7 @@ $3 = {type = T_SubLink}
 
 Param; PG 中 SubPlan 的实现严重依赖着 PG Param 模块, 因此我们这里先提一下 Param. Param 与 Var 起着差不多的语义, 都用做表示一个值的变量. 在运行时, Var 变量对应的值是从 ExprContext 中某个 tuple 某个列中获取. 而 Param 对应的值则是从一个数组中获取, 每个 Param 都有一个唯一的 id 表明自己在该数组中的下标.  
 
-可以很直观的看到对于一个查询来说, 表达式中的子查询, 以及子查询中表达式的子查询组成了一个查询树的结构. 因此对子查询的优化也是树型的. 具体来说在 standard_planner() 中调用 subquery_planner() 完成对 top-most 查询的优化时, subquery_planner() 会调用 preprocess_expression() 来完成表达式预处理, preprocess_expression() 内部如果发现表达式是 SubLink 类型, 便会调用 SS_process_sublinks() 进行处理, 此时会递归调用 subquery_planner() 对 sublink 对应的子查询进行优化. 并将优化之后生成的 plan tree 与 SubPlan 对象追加到 PlannerGlobal::subplans 等字段中. 考虑到这里 PG 采用深度优先的次序来优化查询树, 因此在 PlannerGlobal::subplans 中, 位于叶子节点的子查询会先于她的父节点. PlannerInfo::query_level 记录着当前查询在查询树中所在的层次, 位于查询树根节点的查询 level 为 1, 之后依次以 1 递增; PlannerInfo::parent_root 记录着当前查询的父查询.
+可以很直观的看到对于一个查询来说, 表达式中的子查询, 以及子查询中表达式的子查询组成了一个查询树的结构. 因此对子查询的优化也是树型的. 具体来说在 standard_planner() 中调用 subquery_planner() 完成对 top-most 查询的优化时, subquery_planner() 会调用 preprocess_expression() 来完成表达式预处理, preprocess_expression() 内部如果发现表达式是 SubLink 类型, 便会调用 SS_process_sublinks() 进行处理, 此时会递归调用 subquery_planner() 对 sublink 对应的子查询进行优化. 并将优化之后生成的 plan tree 与 SubPlan 对象追加到 PlannerGlobal::subplans 等字段中. 考虑到这里 PG 采用深度优先的次序来优化查询树, 因此在 PlannerGlobal::subplans 中, 位于叶子节点的子查询会先于她的父节点. 同样的子查询中 PARAM id 也均是小于父查询的(Greenplum 在对 SubPlan 求值时就依赖着这个特性). PlannerInfo::query_level 记录着当前查询在查询树中所在的层次, 位于查询树根节点的查询 level 为 1, 之后依次以 1 递增; PlannerInfo::parent_root 记录着当前查询的父查询.
 
 目前看来, 子查询处理的逻辑主要由函数 subquery_planner() 来完成. 对于 grouping_planner(), query_planner() 这类函数是没有太过于关注查询是否是子查询, 以及查询是否包含子查询.
 

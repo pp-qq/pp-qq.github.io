@@ -78,7 +78,7 @@ kramdown:
 
 # Sidebar settings
 sidebar: true                           # whether or not using Sidebar.
-sidebar-about-description: "简洁, 高效, 赏心悦目"
+sidebar-about-description: "争于世, 不争于势;简洁, 高效, 赏心悦目"
 sidebar-avatar: /img/me.jpg      # use absolute URL, seeing it's used in both `/` and `/about/`
 
 
