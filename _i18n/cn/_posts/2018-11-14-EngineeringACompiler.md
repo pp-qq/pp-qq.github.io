@@ -2,7 +2,7 @@
 title: 编译器设计读书笔记
 hidden: false
 subtitle: "可能对你并没有什么用的"
-tags: [读后感]
+tags: [JustForFun]
 ---
 
 # 前言
