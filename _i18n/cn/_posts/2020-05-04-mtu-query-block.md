@@ -6,6 +6,29 @@ tags: ["Postgresql/Greenplum"]
 
 GP interconnect 层, 对上提供了一种可靠有序的数据传输方式, 在查询执行中计算节点之间通过 GP interconnect 层来完成所需的数据交互. 当前 GP 中 interconnect 主要有两种实现: tcp, udpifc. 其中 tcp 便是直接基于 TCP 搭建; udpifc 则是基于 UDP 协议实现, 在 UDP 基础之上加入了 ACK, 重传等机制来实现了一种可靠有序的数据传输. 当前我们线上主要使用的是 udpifc, 之所以未选择 tcp, 一方面是使用 tcp 时会占用太多的端口, 简单来说, 对于一个具有 m 个 slice 的查询, 当其运行在具有 n 个计算节点的集群上时, 每一个计算节点都需要占用 `n * m` 个端口. 在实际生产中, m 一般取值为 100, n 一般取值为 64, 也即用户 1 条查询, 一个计算节点就需要占用 6400 个端口, 也即最多只能支持 10 并发. 而对于 UDPIFC 而言, 对于一条查询, 无论 m, n 取值多少, 每一个计算节点都只恒要 2 个端口即可. 另一方面则是从性能上, tcp interconnect 比不上 udpifc. 本文记录了我们在使用 udpifc 过程中遇到的若干问题以及解决方案.
 
+
+## TL;DR
+
+太长不看版. 很明显可以看出, 如下几个案例问题的根源就是 gp udpifc 重度依赖了 ip 分片这个特性. 在这篇文章写出前后我们又零零散散遇到过十几例类似问题. 这些问题根本原因都是 ip 分片未能正确处理导致的. 这类问题的表现一般有:
+
+- 查询阻塞, pstack 查看堆栈总位于 sendto(), 或者位于 rxThread poll().
+- 日志中出现类似 `Failed to send packet (seq %d) to %s (pid %d cid %d) after %d retries in %d seconds`, `interconnect encountered a network error` 这种报错.
+
+相应地解法也很简单, 首先将 `gp_max_packet_size` 降低到 mtu, 一般 1500 以下. 然后观察问题是否仍能复现, 若问题仍能复现, 一般不太可能, 这时候可以联系我==! 若问题无法复现, 那么八成是 ip 分片导致的. 接下来:
+
+1.  首先观察集群中所有机器是否具有相同的 mtu. 如果不具有, 那么将他们调为一致. 建议统一成 1500. 较大的 mtu 比如 9000 也是可以, 但这样有风险, 如果用于互联机器的某个设备, 比如交换机/路由器不支持这么大的 mtu, 那么仍会导致机器之间无法互联互通.
+2.  增大 `net.ipv4.ipfrag_high_thresh`, `net.ipv4.ipfrag_time` 配置. 一个参考值是:
+
+    ```
+    sysctl -w net.ipv4.ipfrag_high_thresh=8388608
+    sysctl -w net.ipv4.ipfrag_time=60
+    ```
+
+3.  祈祷
+
+可以看出, 这些解法都是指标不治本的, 我们遇到过将 ipfrag_high_thresh/ipfrag_time 调大之后, 一时解决了问题, 但之后又会出现的情况. 最根本的解法还是要换成 tcp interconnect, 我们在 [QUIC 与 mvfst](https://blog.hidva.com/2020/05/02/quic-mvfst/) 这篇文章中已经解决了 tcp 情况下端口膨胀的问题. 
+
+
 ## MTU 设置不当导致查询阻塞
 
 早在去年的时候, 就偶尔会在线上碰到查询由于 interconnect 层阻塞的问题, 当时线上的现象就是 send slice QE 一直在不停地调用 sendto() 发送一样的数据, 很明显是由于 send QE 未收到 receiver QE 的 ACK 导致. 受限于当时的知识储备, 对于根因的排查也是心有余而智商不足, 一直没去排查过, 而是见过这种问题就将 interconnect 协议改为 TCP. 等到掌握了 innterconnect 以及 GP 执行框架等相关知识储备, 有能力与这个 bug 一决高下的时候, 他却再也不出现了... 
@@ -147,7 +170,7 @@ PING x.y.48.119 (x.y.48.119) 1500(1528) bytes of data.
 1 packets transmitted, 0 received, 100% packet loss, time 7544ms
 ```
 
-所以让我一度以为是发送端自身存在问题, 比如内核/网络/机器哪一块没搞好导致的. 最后去咨询了下阿里基础网络的大佬之后, 才发现是因为接收端重组 buffer 过低导致, 在进一步调高了 net.ipv4.ipfrag_high_thresh 之后发现一切便正常了. 
+所以让我一度以为是发送端自身存在问题, 比如内核/网络/机器哪一块没搞好导致的. 最后去咨询了下阿里基础网络的大佬之后, 才发现是因为接收端重组 buffer 过低导致, 在进一步调高了 net.ipv4.ipfrag_high_thresh 之后发现一切便正常了. 另外某些时候可能还需要同时调整 net.ipv4.ipfrag_time, 默认 30s, 可能需要调大一点~
 
 但这仍然存在这两个遗留问题, 既然是接收端 IP 层重组 buffer 过低导致的丢包, 那么 tcpdump 从网卡抓包时, 在接收端应该是能看到 offset=1480 这个分片的啊. 这个后面想了一下, 目前 ip 分片与重组一般都是网卡硬件实现了, 或者是采用了类似 LRO/GRO 之类的优化技术, 即总是在网络栈最底层完成包的重组与拼接, 尽可能减少对上层协议栈传递的包数量, 所以这里可能是由于重组 buffer 过低导致网卡侧直接丢弃了 ip 分片, 所以 tcpdump 就看不到了.
 
