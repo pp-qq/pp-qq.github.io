@@ -6,7 +6,7 @@ hidden: false
 
 
 
-在学习 C++11 中新增的原子操作以及相应的 memory model 之后; 再看 golang 中的 `sync/atomic`, 可以发现 `sync/atomic` 提供的是纯粹的原子操作, 等同于 c++11 中的 `std::memory_order_relaxed`. 所以 [The Go Memory Model][20171018131724] 在介绍 golang memory model 并未提及到 atomic 可以实现同步语义.
+在学习 C++11 中新增的原子操作以及相应的 memory model 之后; 再看 golang 中的 `sync/atomic`, 可以发现 `sync/atomic` 提供的是纯粹的原子操作, 等同于 c++11 中的 `std::memory_order_relaxed`. 所以 [The Go Memory Model][20171018131724] 在介绍 golang memory model 并未提及到 atomic 可以实现同步语义. (这一点待确定!!!!
 
 
 按我理解 C++11 中的原子操作自带各种同步语义是由于目前硬件限制决定的: CPU 在实现缓存机制时无法做到完全透明, 所以开发者在开发时不得不考虑 CPU 缓存所带来的各种副作用, 这由此导致了 C++11 的原子操作除了操作是原子的之外, 还自带了同步光环. 所以从长远来讲我觉得 golang 中的原子操作才是正宗的原子操作.
