@@ -98,7 +98,7 @@ graph TD;
 
 7.	slot_set_ctid_from_fake() 行为调整. 在 GP 之中, 对于本地表, 可使用 gp_segment_id, ctid 组合来唯一的标识表的一行数据. 某些情况下 GP 会利用这个特性来优化查询, 以 TPCH Q04 为例, 此时生成的执行计划片段如下所示:
 
-![TPCH-Q04 的执行计划图](x)
+![TPCH-Q04 的执行计划图]({{site.url}}/assets/compute.storage.1.png)
 
 可以看到这里首先使用 1 个普通的 hash inner join, 然后再根据 (oss_orders.gp_segment_id, oss_orders.ctid) sort unique 过滤掉 inner join 之后 oss_orders 重复的行. 之后再次基础上执行两阶段的 hash agg 最终得到结果.
 
