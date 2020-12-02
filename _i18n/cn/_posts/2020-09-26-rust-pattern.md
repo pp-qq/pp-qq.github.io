@@ -110,6 +110,29 @@ fn main () {
 这里可以在 y 之前使用 mut 等来阻止使用 default binding mode. 加上 mut 之后, `let Some((ref x, mut y)) = v` y 类型便是 &i32 了.
 
 
+如下, [pattern-binding-modes](https://github.com/rust-lang/rfcs/blob/master/text/2005-match-ergonomics.md) 中关于 binding mode 转换过程的状态图很形象.
+
+```
+                        Start
+                          |
+                          v
+                +-----------------------+
+                | Default Binding Mode: |
+                |        move           |
+                +-----------------------+
+               /                        \
+Encountered   /                          \  Encountered
+  &mut val   /                            \     &val
+            v                              v
++-----------------------+        +-----------------------+
+| Default Binding Mode: |        | Default Binding Mode: |
+|        ref mut        |        |        ref            |
++-----------------------+        +-----------------------+
+                          ----->
+                        Encountered
+                            &val
+```
+
 ## Reference patterns
 
 在对 binding mode 这套掌握之后, 我以为我已经可以在 rust 模式匹配中游刃有余信手拈来了. 直到遇到了 reference pattern! 如同 rust reference 中对 reference pattern 的定义:
