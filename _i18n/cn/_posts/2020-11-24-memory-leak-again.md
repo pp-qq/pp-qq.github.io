@@ -125,4 +125,30 @@ src/common/relpath.c:
 
 实际上除了 ao_truncate_replay() 之外, `dbase_redo()` 目测也是有同样问题的内存泄漏, 只不过触发几率小一些, 用户需要反复 create database, drop database 才可能碰到.
 
+## 内存又又泄漏了
 
+(2020-12-04 新增)
+
+实际上, 就在上次内存泄漏发生不久, 我在压测自己开发的某个特性时, 又一次遇到了另外一个内存泄漏, 详见 [MemoryLeak](https://github.com/greenplum-db/gpdb/pull/11248/commits). 这次内存泄漏也是通过 strings 定位到了泄漏位置:
+
+```
+$ strings core.${QDPID} | sort | uniq -c | sort -nr | head -n 16
+1715633 encoding
+1715626 command
+1715625 quote
+1715625 null
+1715625 format
+1715625 escape
+1715625 delimiter
+1715624 MASTER_ONLY
+1715624 log_errors
+1715624 is_writable
+1715624 format_type
+1715624 false
+1715624 execute_on
+1715624 cat $GP_SEG_DATADIR/log/*.csv
+   2832 UTF-8
+    841 ISO-8859-1
+```
+
+哈!
