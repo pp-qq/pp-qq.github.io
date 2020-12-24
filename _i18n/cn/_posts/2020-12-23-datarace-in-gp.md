@@ -119,3 +119,6 @@ $1 = {type = T_MemoryAccount, ownerType = MEMORY_OWNER_TYPE_MainEntry, allocated
 
 也即 `memoryAccount->allocated >= memoryAccount->freed` 是成立的, 所以不应该触发 assert failed! 现在看来应该也是 memoryAccount 被多个线程同时读写了吧, 但不幸的是, 我这边还在再次试图复现这些 bug.
 
+是的是的是的了!, 确实是因为 rxThreadFunc 调用了 pfree(), palloc() 导致的了, 如同我之前提的这个 [quickdie may be invoked on rxThread](http://hidva.com/g?u=https://github.com/greenplum-db/gpdb/issues/11006) issue 所示, rxThreadFunc 确实可能会调用 pfree(), palloc(); 而 pfree(), palloc() 便会修改 MemoryAccounting_Free(), 便会导致 `memoryAccount->allocated`, `memoryAccount->freed` 被多个线程同时读写, 造成了 data race!
+
+哈哈! 冷藏未决 bug 库清 0!
