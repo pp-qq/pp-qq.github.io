@@ -55,14 +55,11 @@ fn main() {
 
 会编译错误. `Inspector(&world.days)` 意味着 Inspector 的 generic parameter `'a` 对应的 generic arguments 是 world.days 的 lifetime. 另外 'its generics arguments must strictly outlive it' 中 it 是指 world.inspector. 所以 rust drop checker 要求 lifetime of world.days outlive lifetime of world.inspector, 但 rust 中规定了同属于同一个 struct 的 field 互相不 outlive. 即 world.inspector 不 outlive world.days, world.days 也不 outlive world.inspector. 所以违背了 rust drop checker, 编译报错.
 
-## PhantomData 如果没正确使用会导致什么后果?
+## 为什么还需要 PhantomData?
 
-我更迷糊了... 我本来以为如下例子不加 PhantomData 会编译成功, 但后来一想这里 BugBox 实现了 Drop, drop checker 会要求 T outlive BugBox 的, 肯定会编译失败, 也即用不用 PhantomData 无所谓.
+其实到了这里, 对 PhantomData 与 Drop checker 感觉还有点迷糊, 比如如下 BugBox 实现:
 
 ```rust
-use std::alloc::{alloc, dealloc, Layout};
-use std::ptr;
-
 struct BugBox<T> {
     d: *const T,
     // _marker: std::marker::PhantomData<T>,
@@ -88,32 +85,96 @@ impl<T> Drop for BugBox<T> {
         unsafe {dealloc(self.d as *mut _, Layout::new::<T>());}
     }
 }
+```
 
-struct S<'a>(&'a str);
+rust drop checker 会要求 T outlive BugBox, 有没有 PhantomData 无所谓啊! 确实, 上面 BugBox 实现确实目前来说没有问题. 但当与如下类型结合使用时, 就会产生不应该的编译错误.
 
-impl<'a> Drop for S<'a> {
+```rust
+struct Safe1<'a>(&'a str, &'static str);
+
+unsafe impl<#[may_dangle] 'a> Drop for Safe1<'a> {
     fn drop(&mut self) {
-        println!("S::F. {}", self.0);
+        println!("Safe1(_, {}) knows when *not* to inspect.", self.1);
     }
 }
 
-struct Bug<'a> {
-    b: Option<BugBox<S<'a>>>,
+struct SafeS<'a> {
+    b: Option<BugBox<Safe1<'a>>>,
     s: String,
 }
 
 pub fn main() {
-  let mut bug = Bug {
-      b: None,
-      s: "HelloWorld".to_string(),
-  };
-  bug.b = Some(BugBox::new(S(bug.s.as_str())));
+    let mut ss = SafeS {
+        b: None,
+        s: "".to_string(),
+    };
+    ss.b = Some(BugBox::new(Safe1(&ss.s, "")));
 }
 ```
 
-不过倒也强行找出了一个用了 PhantomData 会编译报错, 不用就编译成功的例子, 即删掉如上例子中 BugBox::Drop() 实现. 但感觉并没有太大的说服力...
+如上代码人肉判断是没有问题的, 但由于 BugBox 实现了 Drop, rust drop checker 要求 `Safe<'a>` outlive BugBox, 而实际上这一要求又不满足导致了编译报错. 但人肉判断, 这里 '`Safe<'a>` outlive BugBox' 并不是必须的, 因为 Safe 在其 drop 中并未访问 `'a`. 所以对 BugBox 做了第一版修改, 使用 `may_dangle` attribute:
 
+```rust
+unsafe impl<#[may_dangle] T> Drop for BugBox<T> {
+    fn drop(&mut self) {
+        let d = unsafe {ptr::read(self.d)};
+        std::mem::drop(d);
+        unsafe {dealloc(self.d as *mut _, Layout::new::<T>());}
+    }
+}
+```
 
+但这样又引入了另外一个问题, 由于 T 标记了 may_dangle, 因此 rust drop checker 不再要求 T outlive BugBox, 所以可以写出如下会导致 use-after-free 的代码:
 
+```rust
+struct Safe<'a>(&'a str, &'static str);
 
+impl<'a> Drop for Safe<'a> {
+    fn drop(&mut self) {
+        println!("Safe({}, {}) knows when *not* to inspect.", self.0, self.1);
+    }
+}
 
+struct Str(String);
+
+impl Drop for Str{
+    fn drop(&mut self) {
+        self.0 = "DROPED!!!".to_string();
+    }
+}
+
+struct SafeS<'a> {
+    s: Str,
+    b: Option<BugBox<Safe<'a>>>,
+}
+
+pub fn main() {
+    let mut ss = SafeS {
+        b: None,
+        s: Str("HelloWorld".to_string()),
+    };
+    ss.b = Some(BugBox::new(Safe(&ss.s.0, "")));
+}
+```
+
+所以这时候就需要为 BugBox 引入 PhantomData 了. 这样在与 Safe 一起使用时可以得到预期内的编译报错:
+
+```rust
+   Compiling playground v0.0.1 (/playground)
+error[E0713]: borrow may still be in use when destructor runs
+  --> src/main.rs:58:34
+   |
+58 |     ss.b = Some(BugBox::new(Safe(&ss.s.0, "")));
+   |                                  ^^^^^^^
+59 | }
+   | -
+   | |
+   | here, drop of `ss` needs exclusive access to `ss.s.0`, because the type `Str` implements the `Drop` trait
+   | borrow might be used here, when `ss` is dropped and runs the destructor for type `SafeS<'_>`
+   |
+   = note: consider using a `let` binding to create a longer lived value
+
+error: aborting due to previous error
+```
+
+而且又不影响 `BugBox<Safe1>` 的编译.
