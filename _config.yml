@@ -10,7 +10,7 @@ email: w@hidva.com
 url: "https://blog.hidva.com"              # your host, for absolute URL
 # Copyright © 1995-${CurrentYear} ${copyrightto} 版权所有
 copyrightto: "Hidva.com"
-icp: "皖ICP备17027228号"
+icp: "皖ICP备17027228号-2"
 # baseurl: "/huxblog-boilerplate"         # for example, '/blog' if your blog hosted on 'host/blog'
 
 
