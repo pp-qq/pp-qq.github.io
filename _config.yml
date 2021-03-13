@@ -84,22 +84,13 @@ sidebar-avatar: /img/me.jpg      # use absolute URL, seeing it's used in both `/
 
 
 # Featured Tags
-featured-tags: true # whether or not using Feature-Tags
+featured-tags: false # whether or not using Feature-Tags
 featured-condition-size: 1              # A tag will be featured if the size of it is more than this condition value
 
 
 
 # Friends
-friends: [
-    {
-        title: "Go!Go!Go!",
-        href: "https://go.hidva.com/"
-    },
-    {
-        title: "sqlite3 源码阅读",
-        href: "https://go.hidva.com/'sqlite3src/"
-    }
-]
+# friends: []
 
 defaults:
   -
