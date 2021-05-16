@@ -127,6 +127,7 @@ unsafe impl<#[may_dangle] T> Drop for BugBox<T> {
 但这样又引入了另外一个问题, 由于 T 标记了 may_dangle, 因此 rust drop checker 不再要求 T outlive BugBox, 所以可以写出如下会导致 use-after-free 的代码:
 
 ```rust
+// 代码3
 struct Safe<'a>(&'a str, &'static str);
 
 impl<'a> Drop for Safe<'a> {
@@ -178,3 +179,26 @@ error: aborting due to previous error
 ```
 
 而且又不影响 `BugBox<Safe1>` 的编译.
+
+
+## 总结
+
+所以现在总结下来, rust drop check 的规则目前看如下, 对于 T, T 实现了 Drop trait:
+
+1.  rust drop check 会首先检查 T 所有 generic arguments outlive T. 此时若 T::drop() 实现中, 某个 generic parameter 具有 may_dangle attribute, 那么 rust dropck 将忽略这一 generic parameter 对应 generic arguments 检查. 即如下例子中, rust dropck 并不要求 T1 outlive V, 但要求 T2 outlive T.
+
+    ```rust
+    struct V<T1, T2> { /* ... */}
+
+    unsafe impl<#[may_dangle] T1, T2> Drop for V<T1, T2> {
+        /* ... */
+    }
+    ```
+
+2.  之后 rust dropck 会递归遍历 T 的所有 field, 若某个 field 类型 T1 实现了 Drop, 则 T1 中所有 generic arguments 必须 outlive field, 除非 T1 使用了 may_dangle 来修饰了某一 generic arguments. 即这里对 T1 应用了第一步 drop check 规则.
+
+现在再次回到 BugBox 定义中, 这里 BugBox 最终正确定义与 Vec 实现一样. 即 BugBox::drop() 使用了 may_dangle 修饰了 generic parameter T. 同时 BugBox 内包含 `PhantomData<T>`. 那么对于 `BugBox<Safe1>`, 通过应用如上 2 个 drop check rule, 可知 rust dropck 并不要求 `'a` outlive BugBox, 也不要求 `'a` outlive `_marker`. 而对于 `BugBox<Safe>`, 由于 Safe 没有使用 may_dangle 来修饰 `'a`, 所以 `BugBox<Safe>` 要求 `'a` outlive `_marker`, 所以 '代码3' 示例编译不过.
+
+## 参考
+
+-   [Why is it useful to use PhantomData to inform the compiler that a struct owns a generic if I already implement Drop?](https://stackoverflow.com/questions/42708462/why-is-it-useful-to-use-phantomdata-to-inform-the-compiler-that-a-struct-owns-a)
