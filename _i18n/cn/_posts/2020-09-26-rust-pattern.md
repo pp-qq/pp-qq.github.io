@@ -1,7 +1,7 @@
 ---
 title: "rust 究竟是怎么模式匹配的"
 hidden: false
-tags: ["JustForFun"]
+tags: ["Rust"]
 ---
 
 最近用 rust 重写了之前用 go 写的一个[锁等待图生成工具](https://github.com/hidva/waitforgraph), 这个小玩意会读取收集 Greenplum 当前锁信息, 并生成对应的锁等待图, 可用来大幅加速线上问题的排查. 不幸的是, 之前用 go 写出之后, 不小心把源码弄丢了, 导致我们目前只有 binary 能用. 导致了在使用过程中很多想加的小功能都整不了了. 正巧这次借着 rust 的机会重新实现了下这个功能, 此间过程中也加深了对 rust 各种特性的理解, 比如模式匹配. 模式匹配在 rust 中被大量使用, 在 rust 中, 赋值, 函数参数等都是一次模式匹配, 就感觉到很奇妙.
