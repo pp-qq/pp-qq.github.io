@@ -1,7 +1,7 @@
 ---
 title: "Drop checker 与 PhantomData"
 hidden: false
-tags: ["JustForFun"]
+tags: ["Rust"]
 ---
 
 在回家的路上时候, 忽然想到了 PhantomData.. 当时在囫囵吞枣地学习 rust 时对 PhantomData 只是一扫而过, 只是有印象说是, 应该根据语义来决定是否应该加 PhantomData. 比如 Iter 对外看上去就像是 `&'a T` 的容器, 所以 Iter 在定义上使用了 `_marker: marker::PhantomData<&'a T>,`. 而同样, Vec 看上去是 T 的容器, 所以使用了 `_marker: marker::PhantomData<T>`. 但现在一反刍下来, 发现有点不对劲, 如果我忘了加 PhantomData 会怎么样, 会不知不觉中引入什么坑么.. 越想越是不安.. 所以到家后细细嚼咽了 Rustonomicon 有关 PhantomData 部分, 并总结如下.
