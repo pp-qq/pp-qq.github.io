@@ -112,6 +112,10 @@ impl WorkerExt for Worker {
 
 写到这里忽然意识到 PG parallel query 每次都会新建 worker 进程, 查询结束时终止 worker 进程, 即 worker 进程内的 cachedFetchXid 并不能被后续查询使用, 即 PG cachedFetchXid 是只能用于一个查询呢啊.
 
+(2021-06-20 补充) 站在现在的视角来看, WorkerCache 这套机制有点啰嗦了. 之所以显式传递 WorkerCache 是想让调用者明白本函数依赖着一些 cache, 避免 PG 那种隐式依赖着全局变量而导致的不透明问题. 但其实函数隐式依赖着一些 thread local cache 完全可以是对调用者透明的, 毕竟调用者并不需要为这些 thread local cache 做任何初始化工作. 既然如此, 也就没有必要让调用者知道 "本函数依赖着一些 thread local cache" 这一事实了, 徒增心智负担. 所以 KuiBaDB 目前移除了 WorkerCache 这套机制, 而是采用了 std::thread_local!() 的使用姿势来使用 thread local cache. 另外, 我们在为 session, 为 worker 选择 thread 时, 也要考虑到 thread local cache 的存在, 尽量复用 thread 使得 thread local cache 效果最大化.
+
+当前 std::thread_local 提供的 api 比较受限, thread local 变量对应的初始化表达式只能依赖 static 变量. 以 FDCache 为例, 我们不得不先使用一个常数作为 cache capacity, 之后提供了对应的 resize 接口. 即当 Session, Worker 到达了一个新的线程时, 记得调用 init_thread_locals() 重新调整下这些 thread locals 的配置. 当然忘了调用也没啥问题, 此时使用默认设置就是了. 另外当 Session 检测到 guc 发生变化时, 也可以调用 init_thread_locals() 重新配置下 thread locals cache.
+
 ## RedoState
 
 当前 PG 在 redo 时会将 wal record 中的副作用直接更新到位于共享内存的全局状态中, 而 PG 中基本上所有共享内存中的全局状态都会被锁保护的, 所以 redo() 时也是需要老老实实地获取锁, 更新状态, 释放锁. 但 redo 时系统往往尚未正式开始服务呢, 即是没有必要经历获取锁释放锁这种同步开销的. ~~其实写到这里, 我忽然想起来 PG Hot standby, redo 是会与用户查询进程并发执行的..~~ 比如 xlog_redo():
