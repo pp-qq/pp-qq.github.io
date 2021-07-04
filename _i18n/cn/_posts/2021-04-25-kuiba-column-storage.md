@@ -38,12 +38,14 @@ Each table has a manifest that holds all the live files and their lengths, the d
 
 ```
 ver: 4bytes
+pagelsn: 8bytes
 num_of_l0: 4bytes
-(file_no_l0_file: 4bytes + len_of_l0_file: 4bytes) * num_of_l0
+(file_no_l0_file: 4bytes + len_of_l0_file: 8bytes + rownum: 4bytes) * num_of_l0
 num_of_l1: 4bytes
-(file_no_l1_file: 4bytes + len_of_l1_file: 4bytes) * num_of_l1
+(file_no_l1_file: 4bytes + len_of_l1_file: 8bytes + rownum: 4bytes) * num_of_l1
 num_of_l2: 4bytes
-(file_no_l2_file: 4bytes + len_of_l2_file: 4bytes) * num_of_l2
+(file_no_l2_file: 4bytes + len_of_l2_file: 8bytes + rownum: 4bytes) * num_of_l2
+crc32c: 4bytes
 ```
 
 SuperVersion, the in-memory form for manifest, is defined as follow:
